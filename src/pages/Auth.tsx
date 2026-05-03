@@ -27,7 +27,7 @@ export default function Auth() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) toast.error(error.message);
-    else { toast.success("Welcome back"); navigate("/"); }
+    else { toast.success("Welcome back"); navigate("/dashboard"); }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -45,7 +45,7 @@ export default function Auth() {
     });
     setLoading(false);
     if (error) toast.error(error.message);
-    else { toast.success("Account created"); navigate("/"); }
+    else { toast.success("Account created"); navigate("/dashboard"); }
   };
 
   return (
