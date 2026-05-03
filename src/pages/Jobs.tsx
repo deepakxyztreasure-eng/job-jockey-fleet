@@ -112,7 +112,7 @@ export default function Jobs() {
   };
 
   const updateStatus = async (j: any, status: string) => {
-    const { error } = await supabase.from("jobs").update({ status }).eq("id", j.id);
+    const { error } = await supabase.from("jobs").update({ status: status as any }).eq("id", j.id);
     if (error) return toast.error(error.message);
     toast.success("Status updated");
   };
