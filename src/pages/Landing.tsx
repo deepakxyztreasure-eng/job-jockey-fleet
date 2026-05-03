@@ -33,7 +33,13 @@ export default function Landing() {
     const parsed = leadSchema.safeParse(form);
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     setLoading(true);
-    const { error } = await supabase.from("lead_submissions").insert(parsed.data);
+    const { error } = await supabase.from("lead_submissions").insert({
+      name: parsed.data.name,
+      phone: parsed.data.phone,
+      email: parsed.data.email,
+      business_type: parsed.data.business_type || null,
+      message: parsed.data.message || null,
+    });
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Thanks! We'll be in touch within 24 hours.");

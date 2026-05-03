@@ -14,7 +14,7 @@ export function AppSidebar() {
   const { role, signOut, user } = useAuth();
 
   const adminItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Jobs", url: "/jobs", icon: Briefcase },
     { title: "Drivers", url: "/drivers", icon: Users },
     { title: "Store Locations", url: "/locations", icon: MapPin },
@@ -22,12 +22,12 @@ export function AppSidebar() {
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
   const memberItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Jobs", url: "/jobs", icon: Briefcase },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
   const driverItems = [
-    { title: "My Jobs", url: "/", icon: Briefcase },
+    { title: "My Jobs", url: "/dashboard", icon: Briefcase },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
 
