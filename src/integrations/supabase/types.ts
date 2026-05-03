@@ -88,6 +88,8 @@ export type Database = {
       jobs: {
         Row: {
           assigned_driver_id: string | null
+          completion_notes: string | null
+          completion_requested_at: string | null
           created_at: string
           created_by: string
           delivery_address: string | null
@@ -95,18 +97,25 @@ export type Database = {
           end_time: string | null
           id: string
           invoice_number: string
+          payment_status: Database["public"]["Enums"]["payment_status"]
           pickup_location_id: string
           price: number | null
           priority: Database["public"]["Enums"]["job_priority"]
+          proof_image_url: string | null
+          rejection_reason: string | null
           scheduled_date: string | null
           show_price: boolean
           start_time: string | null
           status: Database["public"]["Enums"]["job_status"]
           title: string
           updated_at: string
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           assigned_driver_id?: string | null
+          completion_notes?: string | null
+          completion_requested_at?: string | null
           created_at?: string
           created_by: string
           delivery_address?: string | null
@@ -114,18 +123,25 @@ export type Database = {
           end_time?: string | null
           id?: string
           invoice_number: string
+          payment_status?: Database["public"]["Enums"]["payment_status"]
           pickup_location_id: string
           price?: number | null
           priority?: Database["public"]["Enums"]["job_priority"]
+          proof_image_url?: string | null
+          rejection_reason?: string | null
           scheduled_date?: string | null
           show_price?: boolean
           start_time?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title: string
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           assigned_driver_id?: string | null
+          completion_notes?: string | null
+          completion_requested_at?: string | null
           created_at?: string
           created_by?: string
           delivery_address?: string | null
@@ -133,15 +149,20 @@ export type Database = {
           end_time?: string | null
           id?: string
           invoice_number?: string
+          payment_status?: Database["public"]["Enums"]["payment_status"]
           pickup_location_id?: string
           price?: number | null
           priority?: Database["public"]["Enums"]["job_priority"]
+          proof_image_url?: string | null
+          rejection_reason?: string | null
           scheduled_date?: string | null
           show_price?: boolean
           start_time?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title?: string
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -340,6 +361,10 @@ export type Database = {
         | "completed"
         | "payment_pending"
         | "closed"
+        | "completion_requested"
+        | "rejected"
+        | "issue"
+      payment_status: "pending" | "partial" | "paid"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -477,7 +502,11 @@ export const Constants = {
         "completed",
         "payment_pending",
         "closed",
+        "completion_requested",
+        "rejected",
+        "issue",
       ],
+      payment_status: ["pending", "partial", "paid"],
     },
   },
 } as const
