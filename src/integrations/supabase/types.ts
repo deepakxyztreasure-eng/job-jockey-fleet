@@ -340,6 +340,9 @@ export type Database = {
         | "completed"
         | "payment_pending"
         | "closed"
+        | "completion_requested"
+        | "rejected"
+        | "issue"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -477,6 +480,9 @@ export const Constants = {
         "completed",
         "payment_pending",
         "closed",
+        "completion_requested",
+        "rejected",
+        "issue",
       ],
     },
   },
