@@ -470,20 +470,26 @@ export default function Jobs() {
                   <td><StatusBadge status={j.status} /></td>
                   <td className="text-right whitespace-nowrap">
                     {/* Driver actions */}
-                    {isDriver && j.status === "assigned" && (
-                      <>
+                    {isDriver && (j.status === "assigned" || j.status === "pending") && (
+                      <div className="flex gap-1 justify-end">
                         <Button size="sm" variant="outline" onClick={()=>driverAccept(j)}>Accept</Button>
                         <Button size="sm" variant="ghost" onClick={()=>driverReject(j)}>Reject</Button>
-                      </>
+                      </div>
                     )}
                     {isDriver && j.status === "accepted" && (
-                      <Button size="sm" onClick={()=>driverStart(j)}>Start</Button>
+                      <Button size="sm" onClick={()=>driverStart(j)}>Start job</Button>
                     )}
                     {isDriver && j.status === "in_progress" && (
-                      <Button size="sm" onClick={()=>{ setCompleteFor(j); setCompNotes(""); setCompFile(null); }}>Mark Completed</Button>
+                      <Button size="sm" onClick={()=>{ setCompleteFor(j); setCompNotes(""); setCompFile(null); }}><CheckCircle2 className="h-4 w-4 mr-1" />Mark Completed</Button>
                     )}
                     {isDriver && j.status === "completion_requested" && (
                       <span className="text-xs text-priority px-2">Awaiting verification</span>
+                    )}
+                    {isDriver && j.status === "rejected" && (
+                      <span className="text-xs text-muted-foreground px-2">Rejected</span>
+                    )}
+                    {isDriver && j.status === "completed" && (
+                      <span className="text-xs text-success px-2">Completed ✓</span>
                     )}
                     {/* Admin actions */}
                     {isAdmin && j.status === "completion_requested" && (
