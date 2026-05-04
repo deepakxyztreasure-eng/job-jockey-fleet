@@ -27,7 +27,8 @@ export function AppSidebar() {
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
   const driverItems = [
-    { title: "My Jobs", url: "/dashboard", icon: Briefcase },
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+    { title: "My Jobs", url: "/jobs", icon: Briefcase },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
 
