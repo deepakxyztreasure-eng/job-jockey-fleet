@@ -74,7 +74,7 @@ export default function Jobs() {
 
   const load = async () => {
     const [{ data: js }, { data: ls }, { data: ds }] = await Promise.all([
-      supabase.from("jobs").select("*, store_locations:pickup_location_id(name), drivers(full_name)").order("created_at", { ascending: false }),
+      supabase.from("jobs").select("*, store_locations(name), drivers(full_name)").order("created_at", { ascending: false }),
       supabase.from("store_locations").select("id,name").eq("active", true).order("name"),
       supabase.from("drivers").select("id,full_name,active").eq("active", true).order("full_name"),
     ]);
