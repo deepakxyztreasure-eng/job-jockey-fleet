@@ -88,20 +88,26 @@ export type Database = {
       jobs: {
         Row: {
           assigned_driver_id: string | null
+          cod: boolean
           completion_notes: string | null
           completion_requested_at: string | null
           created_at: string
           created_by: string
+          customer_mobile: string | null
+          customer_name: string | null
           delivery_address: string | null
+          delivery_location_id: string | null
           description: string | null
           end_time: string | null
           id: string
+          instructions: string | null
           invoice_number: string
           payment_status: Database["public"]["Enums"]["payment_status"]
           pickup_location_id: string
           price: number | null
           priority: Database["public"]["Enums"]["job_priority"]
           proof_image_url: string | null
+          quantity: number | null
           rejection_reason: string | null
           scheduled_date: string | null
           show_price: boolean
@@ -114,20 +120,26 @@ export type Database = {
         }
         Insert: {
           assigned_driver_id?: string | null
+          cod?: boolean
           completion_notes?: string | null
           completion_requested_at?: string | null
           created_at?: string
           created_by: string
+          customer_mobile?: string | null
+          customer_name?: string | null
           delivery_address?: string | null
+          delivery_location_id?: string | null
           description?: string | null
           end_time?: string | null
           id?: string
+          instructions?: string | null
           invoice_number: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
           pickup_location_id: string
           price?: number | null
           priority?: Database["public"]["Enums"]["job_priority"]
           proof_image_url?: string | null
+          quantity?: number | null
           rejection_reason?: string | null
           scheduled_date?: string | null
           show_price?: boolean
@@ -140,20 +152,26 @@ export type Database = {
         }
         Update: {
           assigned_driver_id?: string | null
+          cod?: boolean
           completion_notes?: string | null
           completion_requested_at?: string | null
           created_at?: string
           created_by?: string
+          customer_mobile?: string | null
+          customer_name?: string | null
           delivery_address?: string | null
+          delivery_location_id?: string | null
           description?: string | null
           end_time?: string | null
           id?: string
+          instructions?: string | null
           invoice_number?: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
           pickup_location_id?: string
           price?: number | null
           priority?: Database["public"]["Enums"]["job_priority"]
           proof_image_url?: string | null
+          quantity?: number | null
           rejection_reason?: string | null
           scheduled_date?: string | null
           show_price?: boolean
@@ -170,6 +188,13 @@ export type Database = {
             columns: ["assigned_driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_delivery_location_id_fkey"
+            columns: ["delivery_location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
             referencedColumns: ["id"]
           },
           {
