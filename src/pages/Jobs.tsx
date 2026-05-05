@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Flame, Pencil, Trash2, Download, Filter, ImageIcon, CheckCircle2, XCircle, MoreHorizontal, ShieldCheck } from "lucide-react";
+import { Plus, Flame, Pencil, Trash2, Download, Filter, ImageIcon, CheckCircle2, XCircle, MoreHorizontal, ShieldCheck, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
@@ -23,15 +23,18 @@ const PAYMENT_STATUSES = ["pending","partial","paid"] as const;
 type DateRange = "all"|"today"|"week"|"month"|"custom";
 
 const blank = {
-  title:"", description:"", pickup_location_id:"", delivery_address:"",
+  title:"", description:"", pickup_location_id:"",
+  delivery_kind: "existing" as "existing"|"new",
+  delivery_location_id: "", delivery_address:"",
   scheduled_date:"", priority:"standard" as "standard"|"priority",
   invoice_number:"", price:"", show_price:false,
-  assigned_driver_id:"", start_time:"", end_time:"",
+  cod:false, customer_name:"", customer_mobile:"", quantity:"", instructions:"",
 };
 
 export default function Jobs() {
   const { role, user } = useAuth();
   const isAdmin = role === "super_admin";
+  const isMember = role === "member";
   const isDriver = role === "driver";
 
   const [jobs, setJobs] = useState<any[]>([]);
@@ -51,7 +54,6 @@ export default function Jobs() {
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
 
-  // Selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Driver completion modal
@@ -64,9 +66,15 @@ export default function Jobs() {
   const [verifyFor, setVerifyFor] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
+  // Admin assign-driver modal
+  const [assignFor, setAssignFor] = useState<any | null>(null);
+  const [assignDriver, setAssignDriver] = useState("");
+  const [assignStart, setAssignStart] = useState("");
+  const [assignEnd, setAssignEnd] = useState("");
+
   const load = async () => {
     const [{ data: js }, { data: ls }, { data: ds }] = await Promise.all([
-      supabase.from("jobs").select("*, store_locations(name), drivers(full_name)").order("created_at", { ascending: false }),
+      supabase.from("jobs").select("*, store_locations:pickup_location_id(name), drivers(full_name)").order("created_at", { ascending: false }),
       supabase.from("store_locations").select("id,name").eq("active", true).order("name"),
       supabase.from("drivers").select("id,full_name,active").eq("active", true).order("full_name"),
     ]);
@@ -88,32 +96,37 @@ export default function Jobs() {
       if (fFrom) from = startOfDay(new Date(fFrom));
       if (fTo) to = endOfDay(new Date(fTo));
     }
+    const q = search.trim().toLowerCase();
     return jobs.filter((j) => {
-      if (search && !`${j.title} ${j.invoice_number}`.toLowerCase().includes(search.toLowerCase())) return false;
+      if (q) {
+        const hay = `${j.title ?? ""} ${j.invoice_number ?? ""} ${j.customer_name ?? ""} ${j.customer_mobile ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       if (fStatus !== "all" && j.status !== fStatus) return false;
-      if (fDriver !== "all" && j.assigned_driver_id !== fDriver) return false;
+      if (isAdmin && fDriver !== "all" && j.assigned_driver_id !== fDriver) return false;
       if (fLocation !== "all" && j.pickup_location_id !== fLocation) return false;
       if (fPriority !== "all" && j.priority !== fPriority) return false;
       if (from || to) {
-        const d = j.scheduled_date ? new Date(j.scheduled_date) : (j.start_time ? new Date(j.start_time) : null);
-        if (!d) return false;
+        const d = j.scheduled_date ? new Date(j.scheduled_date) : (j.start_time ? new Date(j.start_time) : new Date(j.created_at));
         if (from && d < from) return false;
         if (to && d > to) return false;
       }
       return true;
     });
-  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo]);
+  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin]);
 
   const startCreate = () => { setEditing(null); setForm(blank); setOpen(true); };
   const startEdit = (j: any) => {
     setEditing(j);
     setForm({
       title: j.title, description: j.description ?? "", pickup_location_id: j.pickup_location_id,
+      delivery_kind: j.delivery_location_id ? "existing" : "new",
+      delivery_location_id: j.delivery_location_id ?? "",
       delivery_address: j.delivery_address ?? "", scheduled_date: j.scheduled_date ?? "",
       priority: j.priority, invoice_number: j.invoice_number, price: j.price ?? "",
-      show_price: j.show_price, assigned_driver_id: j.assigned_driver_id ?? "",
-      start_time: j.start_time ? j.start_time.slice(0,16) : "",
-      end_time: j.end_time ? j.end_time.slice(0,16) : "",
+      show_price: j.show_price, cod: !!j.cod,
+      customer_name: j.customer_name ?? "", customer_mobile: j.customer_mobile ?? "",
+      quantity: j.quantity ?? "", instructions: j.instructions ?? "",
     });
     setOpen(true);
   };
@@ -122,39 +135,38 @@ export default function Jobs() {
     if (!form.title.trim()) return toast.error("Title required");
     if (!form.invoice_number.trim()) return toast.error("Invoice number required");
     if (!form.pickup_location_id) return toast.error("Pickup location required");
-    if (form.assigned_driver_id && (!form.start_time || !form.end_time)) return toast.error("Start and end time required when assigning a driver");
+    if (form.customer_mobile && !/^[0-9+\-\s()]{7,20}$/.test(form.customer_mobile)) return toast.error("Invalid mobile number");
+    if (form.quantity && isNaN(Number(form.quantity))) return toast.error("Quantity must be numeric");
+    if (form.delivery_kind === "existing" && !form.delivery_location_id && !form.delivery_address) {
+      // allow empty; not strictly required
+    }
 
     const payload: any = {
       title: form.title.trim(),
       description: form.description || null,
       pickup_location_id: form.pickup_location_id,
-      delivery_address: form.delivery_address || null,
+      delivery_location_id: form.delivery_kind === "existing" ? (form.delivery_location_id || null) : null,
+      delivery_address: form.delivery_kind === "new" ? (form.delivery_address || null) : null,
       scheduled_date: form.scheduled_date || null,
       priority: form.priority,
       invoice_number: form.invoice_number.trim(),
       price: form.price ? Number(form.price) : null,
       show_price: form.show_price,
-      assigned_driver_id: form.assigned_driver_id || null,
-      start_time: form.start_time ? new Date(form.start_time).toISOString() : null,
-      end_time: form.end_time ? new Date(form.end_time).toISOString() : null,
+      cod: !!form.cod,
+      customer_name: form.customer_name || null,
+      customer_mobile: form.customer_mobile || null,
+      quantity: form.quantity ? Number(form.quantity) : null,
+      instructions: form.instructions || null,
     };
-    if (form.assigned_driver_id && (!editing || editing.status === "pending")) payload.status = "assigned";
 
     if (editing) {
       const { error } = await supabase.from("jobs").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
     } else {
       payload.created_by = user!.id;
-      const { data: created, error } = await supabase.from("jobs").insert(payload).select().single();
+      payload.status = "pending";
+      const { error } = await supabase.from("jobs").insert(payload);
       if (error) return toast.error(error.message);
-      if (created?.assigned_driver_id) {
-        const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", created.assigned_driver_id).single();
-        if (drv?.user_id) {
-          await supabase.from("notifications").insert({
-            user_id: drv.user_id, title: "New job assigned", body: `${payload.title} (Invoice ${payload.invoice_number})`, type: "job_assigned", job_id: created.id,
-          });
-        }
-      }
     }
     toast.success("Saved"); setOpen(false); load();
   };
@@ -164,6 +176,31 @@ export default function Jobs() {
     const { error } = await supabase.from("jobs").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Deleted"); load();
+  };
+
+  // Admin assign-driver
+  const openAssign = (j: any) => {
+    setAssignFor(j); setAssignDriver(j.assigned_driver_id ?? "");
+    setAssignStart(j.start_time ? j.start_time.slice(0,16) : "");
+    setAssignEnd(j.end_time ? j.end_time.slice(0,16) : "");
+  };
+  const submitAssign = async () => {
+    if (!assignFor || !assignDriver) return toast.error("Select a driver");
+    if (!assignStart || !assignEnd) return toast.error("Start and end time required");
+    const { error } = await supabase.from("jobs").update({
+      assigned_driver_id: assignDriver,
+      start_time: new Date(assignStart).toISOString(),
+      end_time: new Date(assignEnd).toISOString(),
+      status: "assigned" as any,
+    }).eq("id", assignFor.id);
+    if (error) return toast.error(error.message);
+    const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", assignDriver).maybeSingle();
+    if (drv?.user_id) {
+      await supabase.from("notifications").insert({
+        user_id: drv.user_id, title: "New job assigned", body: `${assignFor.title} (Invoice ${assignFor.invoice_number})`, type: "job_assigned", job_id: assignFor.id,
+      });
+    }
+    toast.success("Driver assigned"); setAssignFor(null);
   };
 
   // Driver actions
@@ -202,7 +239,6 @@ export default function Jobs() {
       }).eq("id", completeFor.id);
       if (error) throw error;
 
-      // notify admins
       const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "super_admin");
       if (admins?.length) {
         await supabase.from("notifications").insert(admins.map((a) => ({
@@ -220,7 +256,6 @@ export default function Jobs() {
     } finally { setUploading(false); }
   };
 
-  // Admin verify actions
   const adminApprove = async () => {
     if (!verifyFor || !user) return;
     const { error } = await supabase.from("jobs").update({
@@ -255,11 +290,8 @@ export default function Jobs() {
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   };
 
-  // Bulk
   const allChecked = filtered.length > 0 && filtered.every((j) => selected.has(j.id));
-  const toggleAll = () => {
-    setSelected(allChecked ? new Set() : new Set(filtered.map((j) => j.id)));
-  };
+  const toggleAll = () => setSelected(allChecked ? new Set() : new Set(filtered.map((j) => j.id)));
   const toggleOne = (id: string) => {
     const n = new Set(selected); n.has(id) ? n.delete(id) : n.add(id); setSelected(n);
   };
@@ -268,8 +300,7 @@ export default function Jobs() {
     if (!confirm(`${label} ${selected.size} job(s)?`)) return;
     const { error } = await supabase.from("jobs").update(patch).in("id", Array.from(selected));
     if (error) return toast.error(error.message);
-    toast.success(`Updated ${selected.size} jobs`);
-    setSelected(new Set());
+    toast.success(`Updated ${selected.size} jobs`); setSelected(new Set());
   };
   const bulkDelete = async () => {
     if (selected.size === 0) return;
@@ -295,7 +326,11 @@ export default function Jobs() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{isDriver ? "My Jobs" : "Jobs"}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{isDriver ? "Accept, work, and submit jobs for admin verification." : "Create, assign, verify, and track jobs."}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isDriver ? "Accept, work, and submit jobs for admin verification."
+             : isMember ? "Create new jobs — admin will assign a driver."
+             : "Create, assign, verify, and track jobs."}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
@@ -317,42 +352,56 @@ export default function Jobs() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2"><Label>Job title *</Label><Input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} maxLength={150} /></div>
-                    <div className="col-span-2"><Label>Product description</Label><Textarea value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} maxLength={1000} /></div>
                     <div>
                       <Label>Pickup location *</Label>
                       <Select value={form.pickup_location_id} onValueChange={(v)=>setForm({...form,pickup_location_id:v})}>
-                        <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Select pickup" /></SelectTrigger>
                         <SelectContent>{locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div><Label>Delivery address</Label><Input value={form.delivery_address} onChange={(e)=>setForm({...form,delivery_address:e.target.value})} /></div>
                     <div><Label>Scheduled date</Label><Input type="date" value={form.scheduled_date} onChange={(e)=>setForm({...form,scheduled_date:e.target.value})} /></div>
+
+                    <div className="col-span-2 grid grid-cols-2 gap-3 items-start">
+                      <div>
+                        <Label>Delivery type</Label>
+                        <Select value={form.delivery_kind} onValueChange={(v)=>setForm({...form,delivery_kind:v, delivery_location_id:"", delivery_address:""})}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="existing">Existing location</SelectItem>
+                            <SelectItem value="new">New address</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {form.delivery_kind === "existing" ? (
+                        <div>
+                          <Label>Delivery location</Label>
+                          <Select value={form.delivery_location_id} onValueChange={(v)=>setForm({...form,delivery_location_id:v})}>
+                            <SelectTrigger><SelectValue placeholder="Select delivery" /></SelectTrigger>
+                            <SelectContent>{locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <div><Label>New delivery address</Label><Input value={form.delivery_address} onChange={(e)=>setForm({...form,delivery_address:e.target.value})} placeholder="Street, city" /></div>
+                      )}
+                    </div>
+
                     <div><Label>Invoice number *</Label><Input value={form.invoice_number} onChange={(e)=>setForm({...form,invoice_number:e.target.value})} maxLength={60} /></div>
+                    <div className="flex items-end gap-2"><Checkbox id="cod" checked={form.cod} onCheckedChange={(v)=>setForm({...form,cod:!!v})} /><Label htmlFor="cod">Cash on Delivery</Label></div>
+
+                    <div><Label>Customer name</Label><Input value={form.customer_name} onChange={(e)=>setForm({...form,customer_name:e.target.value})} maxLength={120} /></div>
+                    <div><Label>Mobile number</Label><Input value={form.customer_mobile} onChange={(e)=>setForm({...form,customer_mobile:e.target.value})} placeholder="+1 555 0100" /></div>
+                    <div><Label>Quantity</Label><Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} /></div>
                     <div><Label>Price</Label><Input type="number" step="0.01" value={form.price} onChange={(e)=>setForm({...form,price:e.target.value})} /></div>
-                    <div className="flex items-end gap-4">
+
+                    <div className="col-span-2"><Label>Instructions / notes</Label><Textarea value={form.instructions} onChange={(e)=>setForm({...form,instructions:e.target.value})} maxLength={1000} placeholder="Handling notes, delivery window, etc." /></div>
+                    <div className="col-span-2"><Label>Product description</Label><Textarea value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} maxLength={1000} /></div>
+
+                    <div className="flex items-end gap-4 col-span-2">
                       <div className="flex items-center gap-2"><Switch checked={form.priority === "priority"} onCheckedChange={(v)=>setForm({...form,priority: v?"priority":"standard"})} /><Label className="text-priority"><Flame className="inline h-3 w-3 mr-1" />Priority</Label></div>
                       <div className="flex items-center gap-2"><Switch checked={form.show_price} onCheckedChange={(v)=>setForm({...form,show_price:v})} /><Label>Show price</Label></div>
                     </div>
                   </div>
-
-                  <div className="border-t pt-4">
-                    <h3 className="font-medium mb-3">Driver assignment</h3>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <Label>Driver</Label>
-                        <Select value={form.assigned_driver_id || "none"} onValueChange={(v)=>setForm({...form,assigned_driver_id: v==="none"?"":v})}>
-                          <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Unassigned</SelectItem>
-                            {drivers.map((d)=> <SelectItem key={d.id} value={d.id}>{d.full_name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div><Label>Start time</Label><Input type="datetime-local" value={form.start_time} onChange={(e)=>setForm({...form,start_time:e.target.value})} /></div>
-                      <div><Label>End time</Label><Input type="datetime-local" value={form.end_time} onChange={(e)=>setForm({...form,end_time:e.target.value})} /></div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">Overlapping assignments for the same driver are blocked automatically.</p>
-                  </div>
+                  <p className="text-xs text-muted-foreground">Driver will be assigned by Super Admin after job is created.</p>
                 </div>
                 <DialogFooter><Button onClick={save}>Save job</Button></DialogFooter>
               </DialogContent>
@@ -365,7 +414,7 @@ export default function Jobs() {
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-center gap-2 mb-3 text-sm font-medium"><Filter className="h-4 w-4" /> Filters</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-          <Input placeholder="Search title/invoice" value={search} onChange={(e)=>setSearch(e.target.value)} />
+          <Input placeholder="Search invoice, customer, mobile" value={search} onChange={(e)=>setSearch(e.target.value)} />
           <Select value={fStatus} onValueChange={setFStatus}>
             <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
@@ -373,13 +422,15 @@ export default function Jobs() {
               {ALL_STATUSES.map((s)=> <SelectItem key={s} value={s}>{s.replace("_"," ")}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={fDriver} onValueChange={setFDriver}>
-            <SelectTrigger><SelectValue placeholder="Driver" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All drivers</SelectItem>
-              {drivers.map((d)=> <SelectItem key={d.id} value={d.id}>{d.full_name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {isAdmin && (
+            <Select value={fDriver} onValueChange={setFDriver}>
+              <SelectTrigger><SelectValue placeholder="Driver" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All drivers</SelectItem>
+                {drivers.map((d)=> <SelectItem key={d.id} value={d.id}>{d.full_name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={fLocation} onValueChange={setFLocation}>
             <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
             <SelectContent>
@@ -398,10 +449,10 @@ export default function Jobs() {
           <Select value={fRange} onValueChange={(v)=>setFRange(v as DateRange)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Any time</SelectItem>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This week</SelectItem>
-              <SelectItem value="month">This month</SelectItem>
+              <SelectItem value="all">Anytime</SelectItem>
+              <SelectItem value="today">Daily (Today)</SelectItem>
+              <SelectItem value="week">Weekly</SelectItem>
+              <SelectItem value="month">Monthly</SelectItem>
               <SelectItem value="custom">Custom range</SelectItem>
             </SelectContent>
           </Select>
@@ -437,7 +488,7 @@ export default function Jobs() {
           <table className="data-table w-full">
             <thead><tr>
               {isAdmin && <th className="w-8"><Checkbox checked={allChecked} onCheckedChange={toggleAll} /></th>}
-              <th>Job</th><th>Pickup</th><th>Driver</th><th>Window</th><th>Invoice</th><th>Payment</th><th>Status</th><th></th>
+              <th>Job</th><th>Customer</th><th>Pickup</th><th>Driver</th><th>Invoice</th><th>Payment</th><th>Status</th><th></th>
             </tr></thead>
             <tbody>
               {filtered.length === 0 && <tr><td colSpan={9} className="text-center text-muted-foreground py-8">No jobs match filters</td></tr>}
@@ -448,16 +499,18 @@ export default function Jobs() {
                     <div className="flex items-center gap-2">
                       {j.priority === "priority" && <Flame className="h-4 w-4 text-priority" />}
                       <span className="font-medium">{j.title}</span>
+                      {j.cod && <span className="text-[10px] uppercase tracking-wide rounded bg-warning/15 text-warning px-1.5 py-0.5">COD</span>}
                       {j.proof_image_url && <button onClick={()=>viewProof(j.proof_image_url)} title="View proof"><ImageIcon className="h-3.5 w-3.5 text-muted-foreground" /></button>}
                     </div>
                     {j.scheduled_date && <div className="text-xs text-muted-foreground">{format(new Date(j.scheduled_date), "MMM d, yyyy")}</div>}
                     {j.rejection_reason && <div className="text-xs text-destructive">Rejected: {j.rejection_reason}</div>}
                   </td>
+                  <td className="text-xs">
+                    <div className="font-medium">{j.customer_name || "—"}</div>
+                    <div className="text-muted-foreground">{j.customer_mobile || ""}</div>
+                  </td>
                   <td className="text-muted-foreground">{j.store_locations?.name ?? "—"}</td>
                   <td className="text-muted-foreground">{j.drivers?.full_name ?? <span className="italic">Unassigned</span>}</td>
-                  <td className="text-muted-foreground text-xs">
-                    {j.start_time && j.end_time ? <>{format(new Date(j.start_time),"MMM d HH:mm")} → {format(new Date(j.end_time),"HH:mm")}</> : "—"}
-                  </td>
                   <td className="font-mono text-xs">{j.invoice_number}</td>
                   <td>
                     {isAdmin ? (
@@ -469,7 +522,6 @@ export default function Jobs() {
                   </td>
                   <td><StatusBadge status={j.status} /></td>
                   <td className="text-right whitespace-nowrap">
-                    {/* Driver actions */}
                     {isDriver && (j.status === "assigned" || j.status === "pending") && (
                       <div className="flex gap-1 justify-end">
                         <Button size="sm" variant="outline" onClick={()=>driverAccept(j)}>Accept</Button>
@@ -491,7 +543,6 @@ export default function Jobs() {
                     {isDriver && j.status === "completed" && (
                       <span className="text-xs text-success px-2">Completed ✓</span>
                     )}
-                    {/* Admin actions */}
                     {isAdmin && j.status === "completion_requested" && (
                       <Button size="sm" variant="outline" onClick={()=>{ setVerifyFor(j); setRejectReason(""); }}>
                         <ShieldCheck className="h-4 w-4 mr-1" />Verify
@@ -501,6 +552,7 @@ export default function Jobs() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={()=>openAssign(j)}><UserPlus className="h-4 w-4 mr-2" />{j.assigned_driver_id ? "Reassign driver" : "Assign driver"}</DropdownMenuItem>
                           <DropdownMenuItem onClick={()=>startEdit(j)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
                           {j.proof_image_url && <DropdownMenuItem onClick={()=>viewProof(j.proof_image_url)}><ImageIcon className="h-4 w-4 mr-2" />View proof</DropdownMenuItem>}
                           <DropdownMenuSeparator />
@@ -553,6 +605,34 @@ export default function Jobs() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={adminReject}><XCircle className="h-4 w-4 mr-2" />Reject</Button>
             <Button onClick={adminApprove}><CheckCircle2 className="h-4 w-4 mr-2" />Approve</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin assign driver dialog */}
+      <Dialog open={!!assignFor} onOpenChange={(v)=>!v && setAssignFor(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Assign driver</DialogTitle></DialogHeader>
+          {assignFor && (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">{assignFor.title} · Invoice {assignFor.invoice_number}</div>
+              <div>
+                <Label>Driver</Label>
+                <Select value={assignDriver} onValueChange={setAssignDriver}>
+                  <SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger>
+                  <SelectContent>{drivers.map((d)=> <SelectItem key={d.id} value={d.id}>{d.full_name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Start time</Label><Input type="datetime-local" value={assignStart} onChange={(e)=>setAssignStart(e.target.value)} /></div>
+                <div><Label>End time</Label><Input type="datetime-local" value={assignEnd} onChange={(e)=>setAssignEnd(e.target.value)} /></div>
+              </div>
+              <p className="text-xs text-muted-foreground">Overlapping assignments are blocked automatically.</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={()=>setAssignFor(null)}>Cancel</Button>
+            <Button onClick={submitAssign}>Assign</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
