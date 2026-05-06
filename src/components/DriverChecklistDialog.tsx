@@ -78,10 +78,9 @@ export default function DriverChecklistDialog() {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
-        className="sm:max-w-md"
+        className="sm:max-w-md [&>button]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
-        hideClose
       >
         <DialogHeader>
           <DialogTitle>Daily Driver Checklist</DialogTitle>
