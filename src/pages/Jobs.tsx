@@ -24,11 +24,13 @@ type DateRange = "all"|"today"|"week"|"month"|"custom";
 
 const blank = {
   title:"", description:"", pickup_location_id:"",
-  delivery_kind: "existing" as "existing"|"new",
-  delivery_location_id: "", delivery_address:"",
+  pickup_other:"",
+  delivery_address:"",
   scheduled_date:"", priority:"standard" as "standard"|"priority",
+  payment_kind: "invoice" as "invoice"|"cod",
   invoice_number:"", price:"", show_price:false,
-  cod:false, customer_name:"", customer_mobile:"", quantity:"", instructions:"",
+  cod_amount:"",
+  customer_name:"", customer_mobile:"", quantity:"", instructions:"",
 };
 
 export default function Jobs() {
