@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import DriverChecklistDialog from "@/components/DriverChecklistDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,6 +22,7 @@ export default function AppLayout() {
           <main className="flex-1 p-6 bg-background">
             <Outlet />
           </main>
+          <DriverChecklistDialog />
         </div>
       </div>
     </SidebarProvider>
