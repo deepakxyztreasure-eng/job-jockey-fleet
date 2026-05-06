@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      driver_checklist_logs: {
+        Row: {
+          checklist_completed: boolean
+          date: string
+          driver_id: string
+          id: string
+          submitted_at: string
+        }
+        Insert: {
+          checklist_completed?: boolean
+          date?: string
+          driver_id: string
+          id?: string
+          submitted_at?: string
+        }
+        Update: {
+          checklist_completed?: boolean
+          date?: string
+          driver_id?: string
+          id?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_checklist_logs_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_locations: {
         Row: {
           driver_id: string
