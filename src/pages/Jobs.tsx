@@ -141,26 +141,30 @@ export default function Jobs() {
 
   const save = async () => {
     if (!form.title.trim()) return toast.error("Title required");
-    if (!form.invoice_number.trim()) return toast.error("Invoice number required");
     if (!form.pickup_location_id) return toast.error("Pickup location required");
+    if (form.pickup_location_id === "__other__" && !form.pickup_other.trim()) return toast.error("Enter pickup location");
+    if (!form.delivery_address.trim()) return toast.error("Delivery location required");
+    if (form.payment_kind === "invoice" && !form.invoice_number.trim()) return toast.error("Invoice number required");
+    if (form.payment_kind === "cod" && (!form.cod_amount || isNaN(Number(form.cod_amount)))) return toast.error("Enter COD amount");
     if (form.customer_mobile && !/^[0-9+\-\s()]{7,20}$/.test(form.customer_mobile)) return toast.error("Invalid mobile number");
     if (form.quantity && isNaN(Number(form.quantity))) return toast.error("Quantity must be numeric");
-    if (form.delivery_kind === "existing" && !form.delivery_location_id && !form.delivery_address) {
-      // allow empty; not strictly required
-    }
+
+    const isOtherPickup = form.pickup_location_id === "__other__";
+    const isCod = form.payment_kind === "cod";
 
     const payload: any = {
       title: form.title.trim(),
       description: form.description || null,
-      pickup_location_id: form.pickup_location_id,
-      delivery_location_id: form.delivery_kind === "existing" ? (form.delivery_location_id || null) : null,
-      delivery_address: form.delivery_kind === "new" ? (form.delivery_address || null) : null,
+      pickup_location_id: isOtherPickup ? null : form.pickup_location_id,
+      pickup_address: isOtherPickup ? form.pickup_other.trim() : null,
+      delivery_location_id: null,
+      delivery_address: form.delivery_address.trim(),
       scheduled_date: form.scheduled_date || null,
       priority: form.priority,
-      invoice_number: form.invoice_number.trim(),
-      price: form.price ? Number(form.price) : null,
+      invoice_number: isCod ? "" : form.invoice_number.trim(),
+      price: isCod ? Number(form.cod_amount) : (form.price ? Number(form.price) : null),
       show_price: form.show_price,
-      cod: !!form.cod,
+      cod: isCod,
       customer_name: form.customer_name || null,
       customer_mobile: form.customer_mobile || null,
       quantity: form.quantity ? Number(form.quantity) : null,
