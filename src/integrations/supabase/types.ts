@@ -103,7 +103,8 @@ export type Database = {
           instructions: string | null
           invoice_number: string
           payment_status: Database["public"]["Enums"]["payment_status"]
-          pickup_location_id: string
+          pickup_address: string | null
+          pickup_location_id: string | null
           price: number | null
           priority: Database["public"]["Enums"]["job_priority"]
           proof_image_url: string | null
@@ -135,7 +136,8 @@ export type Database = {
           instructions?: string | null
           invoice_number: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
-          pickup_location_id: string
+          pickup_address?: string | null
+          pickup_location_id?: string | null
           price?: number | null
           priority?: Database["public"]["Enums"]["job_priority"]
           proof_image_url?: string | null
@@ -167,7 +169,8 @@ export type Database = {
           instructions?: string | null
           invoice_number?: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
-          pickup_location_id?: string
+          pickup_address?: string | null
+          pickup_location_id?: string | null
           price?: number | null
           priority?: Database["public"]["Enums"]["job_priority"]
           proof_image_url?: string | null

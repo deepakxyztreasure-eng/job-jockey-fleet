@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -24,11 +25,13 @@ type DateRange = "all"|"today"|"week"|"month"|"custom";
 
 const blank = {
   title:"", description:"", pickup_location_id:"",
-  delivery_kind: "existing" as "existing"|"new",
-  delivery_location_id: "", delivery_address:"",
+  pickup_other:"",
+  delivery_address:"",
   scheduled_date:"", priority:"standard" as "standard"|"priority",
+  payment_kind: "invoice" as "invoice"|"cod",
   invoice_number:"", price:"", show_price:false,
-  cod:false, customer_name:"", customer_mobile:"", quantity:"", instructions:"",
+  cod_amount:"",
+  customer_name:"", customer_mobile:"", quantity:"", instructions:"",
 };
 
 export default function Jobs() {
@@ -118,13 +121,19 @@ export default function Jobs() {
   const startCreate = () => { setEditing(null); setForm(blank); setOpen(true); };
   const startEdit = (j: any) => {
     setEditing(j);
+    const isOtherPickup = !j.pickup_location_id && !!j.pickup_address;
     setForm({
-      title: j.title, description: j.description ?? "", pickup_location_id: j.pickup_location_id,
-      delivery_kind: j.delivery_location_id ? "existing" : "new",
-      delivery_location_id: j.delivery_location_id ?? "",
-      delivery_address: j.delivery_address ?? "", scheduled_date: j.scheduled_date ?? "",
-      priority: j.priority, invoice_number: j.invoice_number, price: j.price ?? "",
-      show_price: j.show_price, cod: !!j.cod,
+      title: j.title, description: j.description ?? "",
+      pickup_location_id: isOtherPickup ? "__other__" : (j.pickup_location_id ?? ""),
+      pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
+      delivery_address: j.delivery_address ?? "",
+      scheduled_date: j.scheduled_date ?? "",
+      priority: j.priority,
+      payment_kind: j.cod ? "cod" : "invoice",
+      invoice_number: j.invoice_number ?? "",
+      price: j.price ?? "",
+      show_price: j.show_price,
+      cod_amount: j.cod ? (j.price ?? "") : "",
       customer_name: j.customer_name ?? "", customer_mobile: j.customer_mobile ?? "",
       quantity: j.quantity ?? "", instructions: j.instructions ?? "",
     });
@@ -133,26 +142,30 @@ export default function Jobs() {
 
   const save = async () => {
     if (!form.title.trim()) return toast.error("Title required");
-    if (!form.invoice_number.trim()) return toast.error("Invoice number required");
     if (!form.pickup_location_id) return toast.error("Pickup location required");
+    if (form.pickup_location_id === "__other__" && !form.pickup_other.trim()) return toast.error("Enter pickup location");
+    if (!form.delivery_address.trim()) return toast.error("Delivery location required");
+    if (form.payment_kind === "invoice" && !form.invoice_number.trim()) return toast.error("Invoice number required");
+    if (form.payment_kind === "cod" && (!form.cod_amount || isNaN(Number(form.cod_amount)))) return toast.error("Enter COD amount");
     if (form.customer_mobile && !/^[0-9+\-\s()]{7,20}$/.test(form.customer_mobile)) return toast.error("Invalid mobile number");
     if (form.quantity && isNaN(Number(form.quantity))) return toast.error("Quantity must be numeric");
-    if (form.delivery_kind === "existing" && !form.delivery_location_id && !form.delivery_address) {
-      // allow empty; not strictly required
-    }
+
+    const isOtherPickup = form.pickup_location_id === "__other__";
+    const isCod = form.payment_kind === "cod";
 
     const payload: any = {
       title: form.title.trim(),
       description: form.description || null,
-      pickup_location_id: form.pickup_location_id,
-      delivery_location_id: form.delivery_kind === "existing" ? (form.delivery_location_id || null) : null,
-      delivery_address: form.delivery_kind === "new" ? (form.delivery_address || null) : null,
+      pickup_location_id: isOtherPickup ? null : form.pickup_location_id,
+      pickup_address: isOtherPickup ? form.pickup_other.trim() : null,
+      delivery_location_id: null,
+      delivery_address: form.delivery_address.trim(),
       scheduled_date: form.scheduled_date || null,
       priority: form.priority,
-      invoice_number: form.invoice_number.trim(),
-      price: form.price ? Number(form.price) : null,
+      invoice_number: isCod ? "" : form.invoice_number.trim(),
+      price: isCod ? Number(form.cod_amount) : (form.price ? Number(form.price) : null),
       show_price: form.show_price,
-      cod: !!form.cod,
+      cod: isCod,
       customer_name: form.customer_name || null,
       customer_mobile: form.customer_mobile || null,
       quantity: form.quantity ? Number(form.quantity) : null,
@@ -352,46 +365,58 @@ export default function Jobs() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2"><Label>Job title *</Label><Input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} maxLength={150} /></div>
-                    <div>
+                    <div className="col-span-2">
                       <Label>Pickup location *</Label>
-                      <Select value={form.pickup_location_id} onValueChange={(v)=>setForm({...form,pickup_location_id:v})}>
+                      <Select value={form.pickup_location_id} onValueChange={(v)=>setForm({...form,pickup_location_id:v, pickup_other: v === "__other__" ? form.pickup_other : ""})}>
                         <SelectTrigger><SelectValue placeholder="Select pickup" /></SelectTrigger>
-                        <SelectContent>{locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+                        <SelectContent>
+                          {locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                          <SelectItem value="__other__">Other</SelectItem>
+                        </SelectContent>
                       </Select>
-                    </div>
-                    <div><Label>Scheduled date</Label><Input type="date" value={form.scheduled_date} onChange={(e)=>setForm({...form,scheduled_date:e.target.value})} /></div>
-
-                    <div className="col-span-2 grid grid-cols-2 gap-3 items-start">
-                      <div>
-                        <Label>Delivery type</Label>
-                        <Select value={form.delivery_kind} onValueChange={(v)=>setForm({...form,delivery_kind:v, delivery_location_id:"", delivery_address:""})}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="existing">Existing location</SelectItem>
-                            <SelectItem value="new">New address</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {form.delivery_kind === "existing" ? (
-                        <div>
-                          <Label>Delivery location</Label>
-                          <Select value={form.delivery_location_id} onValueChange={(v)=>setForm({...form,delivery_location_id:v})}>
-                            <SelectTrigger><SelectValue placeholder="Select delivery" /></SelectTrigger>
-                            <SelectContent>{locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                      <div className={`grid transition-all duration-300 ease-out ${form.pickup_location_id === "__other__" ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden">
+                          <Input
+                            placeholder="Enter pickup location"
+                            value={form.pickup_other}
+                            onChange={(e)=>setForm({...form, pickup_other: e.target.value})}
+                            maxLength={200}
+                          />
                         </div>
-                      ) : (
-                        <div><Label>New delivery address</Label><Input value={form.delivery_address} onChange={(e)=>setForm({...form,delivery_address:e.target.value})} placeholder="Street, city" /></div>
-                      )}
+                      </div>
                     </div>
 
-                    <div><Label>Invoice number *</Label><Input value={form.invoice_number} onChange={(e)=>setForm({...form,invoice_number:e.target.value})} maxLength={60} /></div>
-                    <div className="flex items-end gap-2"><Checkbox id="cod" checked={form.cod} onCheckedChange={(v)=>setForm({...form,cod:!!v})} /><Label htmlFor="cod">Cash on Delivery</Label></div>
+                    <div><Label>Scheduled date</Label><Input type="date" value={form.scheduled_date} onChange={(e)=>setForm({...form,scheduled_date:e.target.value})} /></div>
+                    <div><Label>Delivery location *</Label><Input value={form.delivery_address} onChange={(e)=>setForm({...form,delivery_address:e.target.value})} placeholder="Street, city" maxLength={250} /></div>
+
+                    <div className="col-span-2 space-y-2">
+                      <Label>Payment type *</Label>
+                      <RadioGroup
+                        value={form.payment_kind}
+                        onValueChange={(v)=>setForm({...form, payment_kind: v, invoice_number: v === "invoice" ? form.invoice_number : "", cod_amount: v === "cod" ? form.cod_amount : ""})}
+                        className="flex gap-6"
+                      >
+                        <div className="flex items-center gap-2"><RadioGroupItem id="pk-inv" value="invoice" /><Label htmlFor="pk-inv" className="cursor-pointer">Invoice Number</Label></div>
+                        <div className="flex items-center gap-2"><RadioGroupItem id="pk-cod" value="cod" /><Label htmlFor="pk-cod" className="cursor-pointer">Cash on Delivery (COD)</Label></div>
+                      </RadioGroup>
+                      <div className={`grid transition-all duration-300 ease-out ${form.payment_kind === "invoice" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden pt-1">
+                          <Input placeholder="Enter Invoice Number" value={form.invoice_number} onChange={(e)=>setForm({...form, invoice_number: e.target.value})} maxLength={60} />
+                        </div>
+                      </div>
+                      <div className={`grid transition-all duration-300 ease-out ${form.payment_kind === "cod" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden pt-1">
+                          <Input type="number" step="0.01" min="0" placeholder="Enter COD Amount" value={form.cod_amount} onChange={(e)=>setForm({...form, cod_amount: e.target.value})} />
+                        </div>
+                      </div>
+                    </div>
 
                     <div><Label>Customer name</Label><Input value={form.customer_name} onChange={(e)=>setForm({...form,customer_name:e.target.value})} maxLength={120} /></div>
                     <div><Label>Mobile number</Label><Input value={form.customer_mobile} onChange={(e)=>setForm({...form,customer_mobile:e.target.value})} placeholder="+1 555 0100" /></div>
                     <div><Label>Quantity</Label><Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} /></div>
-                    <div><Label>Price</Label><Input type="number" step="0.01" value={form.price} onChange={(e)=>setForm({...form,price:e.target.value})} /></div>
+                    {form.payment_kind === "invoice" && (
+                      <div><Label>Price</Label><Input type="number" step="0.01" value={form.price} onChange={(e)=>setForm({...form,price:e.target.value})} /></div>
+                    )}
 
                     <div className="col-span-2"><Label>Instructions / notes</Label><Textarea value={form.instructions} onChange={(e)=>setForm({...form,instructions:e.target.value})} maxLength={1000} placeholder="Handling notes, delivery window, etc." /></div>
                     <div className="col-span-2"><Label>Product description</Label><Textarea value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} maxLength={1000} /></div>
