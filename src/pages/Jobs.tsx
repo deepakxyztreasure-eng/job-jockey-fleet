@@ -364,46 +364,58 @@ export default function Jobs() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2"><Label>Job title *</Label><Input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} maxLength={150} /></div>
-                    <div>
+                    <div className="col-span-2">
                       <Label>Pickup location *</Label>
-                      <Select value={form.pickup_location_id} onValueChange={(v)=>setForm({...form,pickup_location_id:v})}>
+                      <Select value={form.pickup_location_id} onValueChange={(v)=>setForm({...form,pickup_location_id:v, pickup_other: v === "__other__" ? form.pickup_other : ""})}>
                         <SelectTrigger><SelectValue placeholder="Select pickup" /></SelectTrigger>
-                        <SelectContent>{locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+                        <SelectContent>
+                          {locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                          <SelectItem value="__other__">Other</SelectItem>
+                        </SelectContent>
                       </Select>
-                    </div>
-                    <div><Label>Scheduled date</Label><Input type="date" value={form.scheduled_date} onChange={(e)=>setForm({...form,scheduled_date:e.target.value})} /></div>
-
-                    <div className="col-span-2 grid grid-cols-2 gap-3 items-start">
-                      <div>
-                        <Label>Delivery type</Label>
-                        <Select value={form.delivery_kind} onValueChange={(v)=>setForm({...form,delivery_kind:v, delivery_location_id:"", delivery_address:""})}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="existing">Existing location</SelectItem>
-                            <SelectItem value="new">New address</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {form.delivery_kind === "existing" ? (
-                        <div>
-                          <Label>Delivery location</Label>
-                          <Select value={form.delivery_location_id} onValueChange={(v)=>setForm({...form,delivery_location_id:v})}>
-                            <SelectTrigger><SelectValue placeholder="Select delivery" /></SelectTrigger>
-                            <SelectContent>{locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
-                          </Select>
+                      <div className={`grid transition-all duration-300 ease-out ${form.pickup_location_id === "__other__" ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden">
+                          <Input
+                            placeholder="Enter pickup location"
+                            value={form.pickup_other}
+                            onChange={(e)=>setForm({...form, pickup_other: e.target.value})}
+                            maxLength={200}
+                          />
                         </div>
-                      ) : (
-                        <div><Label>New delivery address</Label><Input value={form.delivery_address} onChange={(e)=>setForm({...form,delivery_address:e.target.value})} placeholder="Street, city" /></div>
-                      )}
+                      </div>
                     </div>
 
-                    <div><Label>Invoice number *</Label><Input value={form.invoice_number} onChange={(e)=>setForm({...form,invoice_number:e.target.value})} maxLength={60} /></div>
-                    <div className="flex items-end gap-2"><Checkbox id="cod" checked={form.cod} onCheckedChange={(v)=>setForm({...form,cod:!!v})} /><Label htmlFor="cod">Cash on Delivery</Label></div>
+                    <div><Label>Scheduled date</Label><Input type="date" value={form.scheduled_date} onChange={(e)=>setForm({...form,scheduled_date:e.target.value})} /></div>
+                    <div><Label>Delivery location *</Label><Input value={form.delivery_address} onChange={(e)=>setForm({...form,delivery_address:e.target.value})} placeholder="Street, city" maxLength={250} /></div>
+
+                    <div className="col-span-2 space-y-2">
+                      <Label>Payment type *</Label>
+                      <RadioGroup
+                        value={form.payment_kind}
+                        onValueChange={(v)=>setForm({...form, payment_kind: v, invoice_number: v === "invoice" ? form.invoice_number : "", cod_amount: v === "cod" ? form.cod_amount : ""})}
+                        className="flex gap-6"
+                      >
+                        <div className="flex items-center gap-2"><RadioGroupItem id="pk-inv" value="invoice" /><Label htmlFor="pk-inv" className="cursor-pointer">Invoice Number</Label></div>
+                        <div className="flex items-center gap-2"><RadioGroupItem id="pk-cod" value="cod" /><Label htmlFor="pk-cod" className="cursor-pointer">Cash on Delivery (COD)</Label></div>
+                      </RadioGroup>
+                      <div className={`grid transition-all duration-300 ease-out ${form.payment_kind === "invoice" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden pt-1">
+                          <Input placeholder="Enter Invoice Number" value={form.invoice_number} onChange={(e)=>setForm({...form, invoice_number: e.target.value})} maxLength={60} />
+                        </div>
+                      </div>
+                      <div className={`grid transition-all duration-300 ease-out ${form.payment_kind === "cod" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden pt-1">
+                          <Input type="number" step="0.01" min="0" placeholder="Enter COD Amount" value={form.cod_amount} onChange={(e)=>setForm({...form, cod_amount: e.target.value})} />
+                        </div>
+                      </div>
+                    </div>
 
                     <div><Label>Customer name</Label><Input value={form.customer_name} onChange={(e)=>setForm({...form,customer_name:e.target.value})} maxLength={120} /></div>
                     <div><Label>Mobile number</Label><Input value={form.customer_mobile} onChange={(e)=>setForm({...form,customer_mobile:e.target.value})} placeholder="+1 555 0100" /></div>
                     <div><Label>Quantity</Label><Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} /></div>
-                    <div><Label>Price</Label><Input type="number" step="0.01" value={form.price} onChange={(e)=>setForm({...form,price:e.target.value})} /></div>
+                    {form.payment_kind === "invoice" && (
+                      <div><Label>Price</Label><Input type="number" step="0.01" value={form.price} onChange={(e)=>setForm({...form,price:e.target.value})} /></div>
+                    )}
 
                     <div className="col-span-2"><Label>Instructions / notes</Label><Textarea value={form.instructions} onChange={(e)=>setForm({...form,instructions:e.target.value})} maxLength={1000} placeholder="Handling notes, delivery window, etc." /></div>
                     <div className="col-span-2"><Label>Product description</Label><Textarea value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} maxLength={1000} /></div>
