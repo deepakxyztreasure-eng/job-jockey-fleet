@@ -120,13 +120,19 @@ export default function Jobs() {
   const startCreate = () => { setEditing(null); setForm(blank); setOpen(true); };
   const startEdit = (j: any) => {
     setEditing(j);
+    const isOtherPickup = !j.pickup_location_id && !!j.pickup_address;
     setForm({
-      title: j.title, description: j.description ?? "", pickup_location_id: j.pickup_location_id,
-      delivery_kind: j.delivery_location_id ? "existing" : "new",
-      delivery_location_id: j.delivery_location_id ?? "",
-      delivery_address: j.delivery_address ?? "", scheduled_date: j.scheduled_date ?? "",
-      priority: j.priority, invoice_number: j.invoice_number, price: j.price ?? "",
-      show_price: j.show_price, cod: !!j.cod,
+      title: j.title, description: j.description ?? "",
+      pickup_location_id: isOtherPickup ? "__other__" : (j.pickup_location_id ?? ""),
+      pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
+      delivery_address: j.delivery_address ?? "",
+      scheduled_date: j.scheduled_date ?? "",
+      priority: j.priority,
+      payment_kind: j.cod ? "cod" : "invoice",
+      invoice_number: j.invoice_number ?? "",
+      price: j.price ?? "",
+      show_price: j.show_price,
+      cod_amount: j.cod ? (j.price ?? "") : "",
       customer_name: j.customer_name ?? "", customer_mobile: j.customer_mobile ?? "",
       quantity: j.quantity ?? "", instructions: j.instructions ?? "",
     });
