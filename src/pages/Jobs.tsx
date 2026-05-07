@@ -528,10 +528,10 @@ export default function Jobs() {
           <table className="data-table w-full">
             <thead><tr>
               {isAdmin && <th className="w-8"><Checkbox checked={allChecked} onCheckedChange={toggleAll} /></th>}
-              <th>Job</th><th>Customer</th><th>Pickup</th><th>Driver</th><th>Invoice</th><th>Payment</th><th>Status</th><th></th>
+              <th>Job</th><th>Customer</th><th>Pickup</th><th>Driver</th><th>Invoice</th><th>Time</th><th>Payment</th><th>Status</th><th></th>
             </tr></thead>
             <tbody>
-              {filtered.length === 0 && <tr><td colSpan={9} className="text-center text-muted-foreground py-8">No jobs match filters</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={10} className="text-center text-muted-foreground py-8">No jobs match filters</td></tr>}
               {filtered.map((j)=>(
                 <tr key={j.id}>
                   {isAdmin && <td><Checkbox checked={selected.has(j.id)} onCheckedChange={()=>toggleOne(j.id)} /></td>}
