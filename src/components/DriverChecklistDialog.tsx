@@ -137,7 +137,7 @@ export default function DriverChecklistDialog() {
           ))}
         </div>
 
-        <div className="p-4 border-t bg-background sticky bottom-0">
+        <div className="p-4 border-t bg-background">
           <Button
             disabled={!allChecked || submitting}
             onClick={submit}
