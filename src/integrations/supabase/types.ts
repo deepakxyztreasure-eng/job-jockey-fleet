@@ -119,6 +119,8 @@ export type Database = {
       }
       jobs: {
         Row: {
+          actual_end_time: string | null
+          actual_start_time: string | null
           assigned_driver_id: string | null
           cod: boolean
           completion_notes: string | null
@@ -152,6 +154,8 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          actual_end_time?: string | null
+          actual_start_time?: string | null
           assigned_driver_id?: string | null
           cod?: boolean
           completion_notes?: string | null
@@ -185,6 +189,8 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          actual_end_time?: string | null
+          actual_start_time?: string | null
           assigned_driver_id?: string | null
           cod?: boolean
           completion_notes?: string | null
