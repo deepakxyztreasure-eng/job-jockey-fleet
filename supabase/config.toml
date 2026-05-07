@@ -8,3 +8,6 @@ verify_jwt = true
 
 [functions.send-checklist-email]
 verify_jwt = true
+
+[functions.seed-team]
+verify_jwt = false
