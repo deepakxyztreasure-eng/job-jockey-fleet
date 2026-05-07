@@ -552,6 +552,21 @@ export default function Jobs() {
                   <td className="text-muted-foreground">{j.store_locations?.name ?? "—"}</td>
                   <td className="text-muted-foreground">{j.drivers?.full_name ?? <span className="italic">Unassigned</span>}</td>
                   <td className="font-mono text-xs">{j.invoice_number}</td>
+                  <td className="text-xs">
+                    {j.actual_start_time ? (
+                      <div className="space-y-0.5">
+                        <div className="text-muted-foreground">
+                          {format(new Date(j.actual_start_time), "h:mm a")}
+                          {j.actual_end_time && <> → {format(new Date(j.actual_end_time), "h:mm a")}</>}
+                        </div>
+                        {formatDuration(j.actual_start_time, j.actual_end_time) && (
+                          <span className="inline-block text-[10px] font-medium rounded bg-success/15 text-success px-1.5 py-0.5">
+                            Completed in {formatDuration(j.actual_start_time, j.actual_end_time)}
+                          </span>
+                        )}
+                      </div>
+                    ) : <span className="text-muted-foreground">—</span>}
+                  </td>
                   <td>
                     {isAdmin ? (
                       <Select value={j.payment_status} onValueChange={(v)=>updatePayment(j,v)}>
