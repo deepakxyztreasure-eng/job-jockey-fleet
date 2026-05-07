@@ -23,6 +23,18 @@ const ALL_STATUSES = ["pending","assigned","accepted","in_progress","completion_
 const PAYMENT_STATUSES = ["pending","partial","paid"] as const;
 type DateRange = "all"|"today"|"week"|"month"|"custom";
 
+function formatDuration(start?: string | null, end?: string | null) {
+  if (!start || !end) return null;
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (ms <= 0) return null;
+  const mins = Math.floor(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
 const blank = {
   title:"", description:"", pickup_location_id:"",
   pickup_other:"",
@@ -229,7 +241,9 @@ export default function Jobs() {
     toast.success("Job rejected");
   };
   const driverStart = async (j: any) => {
-    const { error } = await supabase.from("jobs").update({ status: "in_progress" as any }).eq("id", j.id);
+    const patch: any = { status: "in_progress" as any };
+    if (!j.actual_start_time) patch.actual_start_time = new Date().toISOString();
+    const { error } = await supabase.from("jobs").update(patch).eq("id", j.id);
     if (error) return toast.error(error.message);
   };
 
@@ -249,6 +263,7 @@ export default function Jobs() {
         completion_notes: compNotes || null,
         proof_image_url: proofUrl,
         completion_requested_at: new Date().toISOString(),
+        actual_end_time: completeFor.actual_end_time ?? new Date().toISOString(),
       }).eq("id", completeFor.id);
       if (error) throw error;
 
@@ -513,10 +528,10 @@ export default function Jobs() {
           <table className="data-table w-full">
             <thead><tr>
               {isAdmin && <th className="w-8"><Checkbox checked={allChecked} onCheckedChange={toggleAll} /></th>}
-              <th>Job</th><th>Customer</th><th>Pickup</th><th>Driver</th><th>Invoice</th><th>Payment</th><th>Status</th><th></th>
+              <th>Job</th><th>Customer</th><th>Pickup</th><th>Driver</th><th>Invoice</th><th>Time</th><th>Payment</th><th>Status</th><th></th>
             </tr></thead>
             <tbody>
-              {filtered.length === 0 && <tr><td colSpan={9} className="text-center text-muted-foreground py-8">No jobs match filters</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={10} className="text-center text-muted-foreground py-8">No jobs match filters</td></tr>}
               {filtered.map((j)=>(
                 <tr key={j.id}>
                   {isAdmin && <td><Checkbox checked={selected.has(j.id)} onCheckedChange={()=>toggleOne(j.id)} /></td>}
@@ -537,6 +552,21 @@ export default function Jobs() {
                   <td className="text-muted-foreground">{j.store_locations?.name ?? "—"}</td>
                   <td className="text-muted-foreground">{j.drivers?.full_name ?? <span className="italic">Unassigned</span>}</td>
                   <td className="font-mono text-xs">{j.invoice_number}</td>
+                  <td className="text-xs">
+                    {j.actual_start_time ? (
+                      <div className="space-y-0.5">
+                        <div className="text-muted-foreground">
+                          {format(new Date(j.actual_start_time), "h:mm a")}
+                          {j.actual_end_time && <> → {format(new Date(j.actual_end_time), "h:mm a")}</>}
+                        </div>
+                        {formatDuration(j.actual_start_time, j.actual_end_time) && (
+                          <span className="inline-block text-[10px] font-medium rounded bg-success/15 text-success px-1.5 py-0.5">
+                            Completed in {formatDuration(j.actual_start_time, j.actual_end_time)}
+                          </span>
+                        )}
+                      </div>
+                    ) : <span className="text-muted-foreground">—</span>}
+                  </td>
                   <td>
                     {isAdmin ? (
                       <Select value={j.payment_status} onValueChange={(v)=>updatePayment(j,v)}>
