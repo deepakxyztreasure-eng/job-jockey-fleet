@@ -251,6 +251,7 @@ export default function Jobs() {
         completion_notes: compNotes || null,
         proof_image_url: proofUrl,
         completion_requested_at: new Date().toISOString(),
+        actual_end_time: completeFor.actual_end_time ?? new Date().toISOString(),
       }).eq("id", completeFor.id);
       if (error) throw error;
 
