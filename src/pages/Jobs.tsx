@@ -23,6 +23,18 @@ const ALL_STATUSES = ["pending","assigned","accepted","in_progress","completion_
 const PAYMENT_STATUSES = ["pending","partial","paid"] as const;
 type DateRange = "all"|"today"|"week"|"month"|"custom";
 
+function formatDuration(start?: string | null, end?: string | null) {
+  if (!start || !end) return null;
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (ms <= 0) return null;
+  const mins = Math.floor(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
 const blank = {
   title:"", description:"", pickup_location_id:"",
   pickup_other:"",
