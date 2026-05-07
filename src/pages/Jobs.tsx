@@ -229,7 +229,9 @@ export default function Jobs() {
     toast.success("Job rejected");
   };
   const driverStart = async (j: any) => {
-    const { error } = await supabase.from("jobs").update({ status: "in_progress" as any }).eq("id", j.id);
+    const patch: any = { status: "in_progress" as any };
+    if (!j.actual_start_time) patch.actual_start_time = new Date().toISOString();
+    const { error } = await supabase.from("jobs").update(patch).eq("id", j.id);
     if (error) return toast.error(error.message);
   };
 
