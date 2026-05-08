@@ -89,11 +89,18 @@ export default function Jobs() {
 
   const load = async () => {
     const [{ data: js }, { data: ls }, { data: ds }] = await Promise.all([
-      supabase.from("jobs").select("*, store_locations(name), drivers(full_name)").order("created_at", { ascending: false }),
-      supabase.from("store_locations").select("id,name").eq("active", true).order("name"),
-      supabase.from("drivers").select("id,full_name,active").eq("active", true).order("full_name"),
+      supabase.from("jobs").select("*").order("created_at", { ascending: false }),
+      supabase.from("store_locations").select("id,name,active").order("name"),
+      supabase.from("drivers").select("id,full_name,active").order("full_name"),
     ]);
-    setJobs(js ?? []); setLocations(ls ?? []); setDrivers(ds ?? []);
+    const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
+    const drvMap = new Map((ds ?? []).map((d: any) => [d.id, d]));
+    const enriched = (js ?? []).map((j: any) => ({
+      ...j,
+      store_locations: j.pickup_location_id ? locMap.get(j.pickup_location_id) ?? null : null,
+      drivers: j.assigned_driver_id ? drvMap.get(j.assigned_driver_id) ?? null : null,
+    }));
+    setJobs(enriched); setLocations((ls ?? []).filter((l: any) => l.active !== false)); setDrivers((ds ?? []).filter((d: any) => d.active));
   };
   useEffect(() => {
     load();
