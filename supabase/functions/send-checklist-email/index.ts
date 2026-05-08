@@ -1,4 +1,8 @@
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -23,20 +27,27 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: "onboarding@resend.dev",
+        from: "Driver Checklist <onboarding@resend.dev>",
         to: ["deepakchandra076@gmail.com"],
-        subject: "Driver Daily Checklist Completed",
+        subject: `Driver Checklist Completed - ${driverName}`,
         html,
       }),
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(JSON.stringify(data));
+    console.log("Resend response", res.status, JSON.stringify(data));
+    if (!res.ok) {
+      return new Response(JSON.stringify({ error: data }), {
+        status: res.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     return new Response(JSON.stringify({ ok: true, data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    console.error("send-checklist-email error", e);
     return new Response(JSON.stringify({ error: String(e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
