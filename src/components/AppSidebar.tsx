@@ -40,8 +40,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <img src={logo} alt="Sodha" className="h-8 w-8 rounded-md bg-white p-0.5 object-contain shrink-0" />
-          {!collapsed && <span className="font-semibold text-white">Sodha Group</span>}
+          <img src={logo} alt="Jodha" className="h-8 w-8 rounded-md bg-white p-0.5 object-contain shrink-0" />
+          {!collapsed && <span className="font-semibold text-white">Jodha Group</span>}
         </div>
       </SidebarHeader>
       <SidebarContent>
