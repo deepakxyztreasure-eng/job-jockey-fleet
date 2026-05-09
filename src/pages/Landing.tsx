@@ -22,6 +22,7 @@ import asphaltImg from "@/assets/jodha/asphalt.webp";
 import rocksImg from "@/assets/jodha/rocks.webp";
 import tipperImg from "@/assets/jodha/tipper.png";
 import mulchImg from "@/assets/jodha/mulch.webp";
+import logo from "@/assets/jodha/logo.jpg";
 
 const leadSchema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -99,10 +100,9 @@ export default function Landing() {
       {/* Nav */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
         <div className="container flex h-20 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="h-11 w-11 rounded-full bg-[hsl(140,70%,18%)] flex items-center justify-center text-white font-bold text-lg">J</div>
-            <div className="leading-tight">
-              <div className="font-bold text-xl tracking-wide">JODHA</div>
+          <Link to="/" className="flex items-center gap-3">
+            <img src={logo} alt="Sodha Group logo" className="h-12 w-auto object-contain" />
+            <div className="leading-tight hidden sm:block">
               <div className="text-[10px] text-muted-foreground tracking-widest">QUARRY PRODUCTS · EARTHWORKS</div>
             </div>
           </Link>
@@ -311,9 +311,9 @@ export default function Landing() {
 
       <footer className="bg-[hsl(140,70%,12%)] text-white/80">
         <div className="container py-8 flex flex-wrap items-center justify-between gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-full bg-white text-[hsl(140,70%,18%)] flex items-center justify-center font-bold">J</div>
-            <span>© {new Date().getFullYear()} Jodha Group — Quarry Products & Earthworks</span>
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="Sodha Group" className="h-9 w-auto bg-white rounded px-1 py-0.5 object-contain" />
+            <span>© {new Date().getFullYear()} Sodha Group — Quarry Products & Earthworks</span>
           </div>
           <Link to="/auth" className="hover:text-white">Customer login →</Link>
         </div>
