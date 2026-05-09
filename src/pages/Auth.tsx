@@ -53,8 +53,8 @@ export default function Auth() {
     <div className="min-h-screen grid lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between p-12 bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-3">
-          <img src={logo} alt="Sodha Group" className="h-12 w-auto bg-white rounded-md p-1 object-contain" />
-          <span className="font-semibold text-lg text-white">Sodha Group</span>
+          <img src={logo} alt="Jodha Group" className="h-12 w-auto bg-white rounded-md p-1 object-contain" />
+          <span className="font-semibold text-lg text-white">Jodha Group</span>
         </div>
         <div>
           <h2 className="text-3xl font-semibold text-white leading-tight">
@@ -62,7 +62,7 @@ export default function Auth() {
           </h2>
           <p className="mt-3 text-sm opacity-80">Assign jobs, prevent schedule conflicts, track drivers, and close the loop on payments — all in one console.</p>
         </div>
-        <p className="text-xs opacity-60">© {new Date().getFullYear()} Sodha Group</p>
+        <p className="text-xs opacity-60">© {new Date().getFullYear()} Jodha Group</p>
       </div>
       <div className="flex items-center justify-center p-6">
         <Card className="w-full max-w-md">
