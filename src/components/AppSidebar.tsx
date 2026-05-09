@@ -6,6 +6,7 @@ import {
 import { LayoutDashboard, Briefcase, Users, MapPin, ShieldCheck, Truck, Bell, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/jodha/logo.jpg";
 
 export function AppSidebar() {
   const { state } = useSidebar();

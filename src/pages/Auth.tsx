@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Truck } from "lucide-react";
 import { z } from "zod";
+import logo from "@/assets/jodha/logo.jpg";
 
 const emailSchema = z.string().trim().email().max(255);
 const passwordSchema = z.string().min(8).max(72);
