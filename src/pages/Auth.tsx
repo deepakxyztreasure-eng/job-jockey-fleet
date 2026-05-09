@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Truck } from "lucide-react";
 import { z } from "zod";
+import logo from "@/assets/jodha/logo.jpg";
 
 const emailSchema = z.string().trim().email().max(255);
 const passwordSchema = z.string().min(8).max(72);
@@ -51,11 +52,9 @@ export default function Auth() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between p-12 bg-sidebar text-sidebar-foreground">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-lg bg-accent flex items-center justify-center">
-            <Truck className="h-5 w-5 text-accent-foreground" />
-          </div>
-          <span className="font-semibold text-lg text-white">Dispatch OS</span>
+        <div className="flex items-center gap-3">
+          <img src={logo} alt="Sodha Group" className="h-12 w-auto bg-white rounded-md p-1 object-contain" />
+          <span className="font-semibold text-lg text-white">Sodha Group</span>
         </div>
         <div>
           <h2 className="text-3xl font-semibold text-white leading-tight">
@@ -63,7 +62,7 @@ export default function Auth() {
           </h2>
           <p className="mt-3 text-sm opacity-80">Assign jobs, prevent schedule conflicts, track drivers, and close the loop on payments — all in one console.</p>
         </div>
-        <p className="text-xs opacity-60">© {new Date().getFullYear()} Dispatch OS</p>
+        <p className="text-xs opacity-60">© {new Date().getFullYear()} Sodha Group</p>
       </div>
       <div className="flex items-center justify-center p-6">
         <Card className="w-full max-w-md">

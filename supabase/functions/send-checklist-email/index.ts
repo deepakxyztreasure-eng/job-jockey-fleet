@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: "Driver Checklist <onboarding@resend.dev>",
-        to: ["deepakchandra076@gmail.com"],
+        to: ["deepakxyztreasure@gmail.com"],
         subject: `Driver Checklist Completed - ${driverName}`,
         html,
       }),
