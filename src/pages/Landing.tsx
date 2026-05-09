@@ -98,7 +98,7 @@ export default function Landing() {
       </div>
 
       {/* Nav */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b bg-white">
         <div className="container flex h-20 items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <img src={logo} alt="Sodha Group logo" className="h-12 w-auto object-contain" />
