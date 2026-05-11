@@ -27,8 +27,8 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: "Driver Checklist <onboarding@resend.dev>",
-        to: ["deepakxyztreasure@gmail.com"],
+        from: "Jodha Group <noreply@jodhagroup.app>",
+        to: ["deepakchandra076@gmail.com"],
         subject: `Driver Checklist Completed - ${driverName}`,
         html,
       }),
