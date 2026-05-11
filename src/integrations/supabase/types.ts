@@ -126,7 +126,7 @@ export type Database = {
           completion_notes: string | null
           completion_requested_at: string | null
           created_at: string
-          created_by: string
+          created_by: string | null
           customer_mobile: string | null
           customer_name: string | null
           delivery_address: string | null
@@ -161,7 +161,7 @@ export type Database = {
           completion_notes?: string | null
           completion_requested_at?: string | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           customer_mobile?: string | null
           customer_name?: string | null
           delivery_address?: string | null
@@ -196,7 +196,7 @@ export type Database = {
           completion_notes?: string | null
           completion_requested_at?: string | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           customer_mobile?: string | null
           customer_name?: string | null
           delivery_address?: string | null
