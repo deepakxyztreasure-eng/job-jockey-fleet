@@ -129,7 +129,7 @@ export default function Landing() {
             Supplying premium quarry products & material across Melbourne, industries — trusted by civil, commercial & residential sectors statewide.
           </p>
           <div className="mt-8">
-            <Button size="lg" className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 text-white rounded-full h-12 px-[40px] opacity-100 bg-[#091134]" onClick={() => scrollTo("contact")}>
+            <Button size="lg" className="hover:bg-primary/90 inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 text-white rounded-full h-12 bg-[#f2780d] opacity-100 px-[50px]" onClick={() => scrollTo("contact")}>
               Sign in
             </Button>
           </div>
