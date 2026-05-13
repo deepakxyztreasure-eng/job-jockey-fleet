@@ -1,7 +1,6 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (req) => {
@@ -28,7 +27,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: "Jodha Group <noreply@jodhagroup.app>",
-        to: ["deepakchandra076@gmail.com"],
+        to: ["garytippertruck@gmail.com"],
         subject: `Driver Checklist Completed - ${driverName}`,
         html,
       }),
