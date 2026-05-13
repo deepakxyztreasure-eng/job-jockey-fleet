@@ -50,8 +50,21 @@ export default function Landing() {
       business_type: parsed.data.business_type || null,
       message: parsed.data.message || null,
     });
+    if (error) {
+      setLoading(false);
+      return toast.error(error.message);
+    }
+    const { error: emailError } = await supabase.functions.invoke("send-enquiry", {
+      body: {
+        name: parsed.data.name,
+        phone: parsed.data.phone,
+        email: parsed.data.email,
+        business_type: parsed.data.business_type || null,
+        message: parsed.data.message || null,
+      },
+    });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (emailError) console.error("send-enquiry failed", emailError);
     toast.success("Thanks! We'll be in touch shortly.");
     setForm({ name: "", phone: "", email: "", business_type: "", message: "" });
   };
@@ -129,9 +142,11 @@ export default function Landing() {
             Supplying premium quarry products & material across Melbourne, industries — trusted by civil, commercial & residential sectors statewide.
           </p>
           <div className="mt-8">
-            <Button size="lg" className="hover:bg-primary/90 inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 text-white rounded-full h-12 bg-[#f2780d] opacity-100 px-[50px]" onClick={() => scrollTo("contact")}>
-              Sign in
-            </Button>
+            <Link to="/auth">
+              <Button size="lg" className="hover:bg-primary/90 inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 text-white rounded-full h-12 bg-[#f2780d] opacity-100 px-[50px]">
+                Sign in
+              </Button>
+            </Link>
           </div>
         </div>
         <div className="bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-500 text-black text-center font-medium py-3 px-4">
