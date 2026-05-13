@@ -1,7 +1,6 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (req) => {
@@ -20,8 +19,9 @@ Deno.serve(async (req) => {
     if (!apiKey) throw new Error("RESEND_API_KEY missing");
 
     const esc = (s: string) =>
-      String(s ?? "").replace(/[&<>"']/g, (c) =>
-        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!)
+      String(s ?? "").replace(
+        /[&<>"']/g,
+        (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
       );
 
     const html = `
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: "Jodha Group <noreply@jodhagroup.app>",
-        to: ["garytippertruck@gmail.com"],
+        to: ["deepakchandra076@gmail.com"],
         reply_to: email,
         subject: `New Enquiry - ${name}`,
         html,
