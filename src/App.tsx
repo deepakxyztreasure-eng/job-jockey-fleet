@@ -35,6 +35,7 @@ const App = () => (
               <Route path="/drivers" element={<ProtectedRoute roles={["super_admin"]}><Drivers /></ProtectedRoute>} />
               <Route path="/locations" element={<StoreLocations />} />
               <Route path="/users" element={<ProtectedRoute roles={["super_admin"]}><Users /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute roles={["super_admin"]}><Admin /></ProtectedRoute>} />
               <Route path="/notifications" element={<Notifications />} />
             </Route>
             <Route path="*" element={<NotFound />} />
