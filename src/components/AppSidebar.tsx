@@ -20,6 +20,7 @@ export function AppSidebar() {
     { title: "Drivers", url: "/drivers", icon: Users },
     { title: "Store Locations", url: "/locations", icon: MapPin },
     { title: "Users & Roles", url: "/users", icon: ShieldCheck },
+    { title: "Admin", url: "/admin", icon: UserCog },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
   const memberItems = [
