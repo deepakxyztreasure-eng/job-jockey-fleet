@@ -3,7 +3,7 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Briefcase, Users, MapPin, ShieldCheck, Truck, Bell, LogOut } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, MapPin, ShieldCheck, Truck, Bell, LogOut, UserCog } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/jodha/logo.jpg";
@@ -20,6 +20,7 @@ export function AppSidebar() {
     { title: "Drivers", url: "/drivers", icon: Users },
     { title: "Store Locations", url: "/locations", icon: MapPin },
     { title: "Users & Roles", url: "/users", icon: ShieldCheck },
+    { title: "Admin", url: "/admin", icon: UserCog },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
   const memberItems = [
