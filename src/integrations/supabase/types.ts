@@ -143,6 +143,7 @@ export type Database = {
           priority: Database["public"]["Enums"]["job_priority"]
           proof_image_url: string | null
           quantity: number | null
+          quantity_unit: string | null
           rejection_reason: string | null
           scheduled_date: string | null
           show_price: boolean
@@ -178,6 +179,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["job_priority"]
           proof_image_url?: string | null
           quantity?: number | null
+          quantity_unit?: string | null
           rejection_reason?: string | null
           scheduled_date?: string | null
           show_price?: boolean
@@ -213,6 +215,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["job_priority"]
           proof_image_url?: string | null
           quantity?: number | null
+          quantity_unit?: string | null
           rejection_reason?: string | null
           scheduled_date?: string | null
           show_price?: boolean

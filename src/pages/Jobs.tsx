@@ -23,6 +23,16 @@ const ALL_STATUSES = ["pending","assigned","accepted","in_progress","completion_
 const PAYMENT_STATUSES = ["pending","partial","paid"] as const;
 type DateRange = "all"|"today"|"week"|"month"|"custom";
 
+const TITLE_OPTIONS = [
+  "Asphalt profiling","Asphalt screened","Asphalt hotmix","Aggregate","Beaching Rock","Ballast Rock",
+  "Bedding sand","Brick sand","Bags","Concrete sand","Crushed rock","Crusher dust","Coldstream Rock",
+  "Crushed concrete","Driveway Topping","Drainage Rock","Decorative Stone","Dust","Digger compost",
+  "Filling soil","Granite Rock","Garden blend","Honey Granite","Kids play sand","Lime stone","Lawn Blend",
+  "Mudstone","Mulch","Packing sand","P-gravel","Rubbles","Sand","Soil","Scoria","Topsoil","Tuscan",
+  "Washed sand","White stone","Yellow brick sand",
+] as const;
+const QUANTITY_UNITS = ["Tonnes","Cubic Metres","Number of bags"] as const;
+
 function formatDuration(start?: string | null, end?: string | null) {
   if (!start || !end) return null;
   const ms = new Date(end).getTime() - new Date(start).getTime();
@@ -36,14 +46,17 @@ function formatDuration(start?: string | null, end?: string | null) {
 }
 
 const blank = {
-  title:"", description:"", pickup_location_id:"",
+  title_select:"", title_other:"",
+  description:"", pickup_location_id:"",
   pickup_other:"",
   delivery_address:"",
   scheduled_date:"", priority:"standard" as "standard"|"priority",
   payment_kind: "invoice" as "invoice"|"cod",
   invoice_number:"", price:"", show_price:false,
   cod_amount:"",
-  customer_name:"", customer_mobile:"", quantity:"", instructions:"",
+  customer_name:"", customer_mobile:"",
+  quantity:"", quantity_unit:"", quantity_unit_other:"",
+  instructions:"",
 };
 
 export default function Jobs() {
@@ -141,8 +154,12 @@ export default function Jobs() {
   const startEdit = (j: any) => {
     setEditing(j);
     const isOtherPickup = !j.pickup_location_id && !!j.pickup_address;
+    const titleInList = j.title && (TITLE_OPTIONS as readonly string[]).includes(j.title);
+    const unitInList = j.quantity_unit && (QUANTITY_UNITS as readonly string[]).includes(j.quantity_unit);
     setForm({
-      title: j.title, description: j.description ?? "",
+      title_select: titleInList ? j.title : (j.title ? "__other__" : ""),
+      title_other: titleInList ? "" : (j.title ?? ""),
+      description: j.description ?? "",
       pickup_location_id: isOtherPickup ? "__other__" : (j.pickup_location_id ?? ""),
       pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
       delivery_address: j.delivery_address ?? "",
@@ -154,13 +171,19 @@ export default function Jobs() {
       show_price: j.show_price,
       cod_amount: j.cod ? (j.price ?? "") : "",
       customer_name: j.customer_name ?? "", customer_mobile: j.customer_mobile ?? "",
-      quantity: j.quantity ?? "", instructions: j.instructions ?? "",
+      quantity: j.quantity ?? "",
+      quantity_unit: unitInList ? j.quantity_unit : (j.quantity_unit ? "__other__" : ""),
+      quantity_unit_other: unitInList ? "" : (j.quantity_unit ?? ""),
+      instructions: j.instructions ?? "",
     });
     setOpen(true);
   };
 
   const save = async () => {
-    if (!form.title.trim()) return toast.error("Title required");
+    const finalTitle = form.title_select === "__other__"
+      ? form.title_other.trim()
+      : form.title_select;
+    if (!finalTitle) return toast.error("Title required");
     if (!form.pickup_location_id) return toast.error("Pickup location required");
     if (form.pickup_location_id === "__other__" && !form.pickup_other.trim()) return toast.error("Enter pickup location");
     if (!form.delivery_address.trim()) return toast.error("Delivery location required");
@@ -168,12 +191,17 @@ export default function Jobs() {
     if (form.payment_kind === "cod" && (!form.cod_amount || isNaN(Number(form.cod_amount)))) return toast.error("Enter COD amount");
     if (form.customer_mobile && !/^[0-9+\-\s()]{7,20}$/.test(form.customer_mobile)) return toast.error("Invalid mobile number");
     if (form.quantity && isNaN(Number(form.quantity))) return toast.error("Quantity must be numeric");
+    if (form.quantity && !form.quantity_unit) return toast.error("Select a quantity unit");
+    if (form.quantity_unit === "__other__" && !form.quantity_unit_other.trim()) return toast.error("Enter quantity unit");
 
     const isOtherPickup = form.pickup_location_id === "__other__";
     const isCod = form.payment_kind === "cod";
+    const finalUnit = form.quantity_unit === "__other__"
+      ? form.quantity_unit_other.trim()
+      : (form.quantity_unit || null);
 
     const payload: any = {
-      title: form.title.trim(),
+      title: finalTitle,
       description: form.description || null,
       pickup_location_id: isOtherPickup ? null : form.pickup_location_id,
       pickup_address: isOtherPickup ? form.pickup_other.trim() : null,
@@ -188,6 +216,7 @@ export default function Jobs() {
       customer_name: form.customer_name || null,
       customer_mobile: form.customer_mobile || null,
       quantity: form.quantity ? Number(form.quantity) : null,
+      quantity_unit: form.quantity ? finalUnit : null,
       instructions: form.instructions || null,
     };
 
@@ -386,7 +415,21 @@ export default function Jobs() {
                 <DialogHeader><DialogTitle>{editing ? "Edit" : "New"} job</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2"><Label>Job title *</Label><Input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} maxLength={150} /></div>
+                    <div className="col-span-2">
+                      <Label>Job title *</Label>
+                      <Select value={form.title_select} onValueChange={(v)=>setForm({...form, title_select: v, title_other: v === "__other__" ? form.title_other : ""})}>
+                        <SelectTrigger><SelectValue placeholder="Select job title" /></SelectTrigger>
+                        <SelectContent>
+                          {TITLE_OPTIONS.map((t)=> <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          <SelectItem value="__other__">Others</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className={`grid transition-all duration-300 ease-out ${form.title_select === "__other__" ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden">
+                          <Input placeholder="Enter job title" value={form.title_other} onChange={(e)=>setForm({...form, title_other: e.target.value})} maxLength={150} />
+                        </div>
+                      </div>
+                    </div>
                     <div className="col-span-2">
                       <Label>Pickup location *</Label>
                       <Select value={form.pickup_location_id} onValueChange={(v)=>setForm({...form,pickup_location_id:v, pickup_other: v === "__other__" ? form.pickup_other : ""})}>
@@ -435,7 +478,27 @@ export default function Jobs() {
 
                     <div><Label>Customer name</Label><Input value={form.customer_name} onChange={(e)=>setForm({...form,customer_name:e.target.value})} maxLength={120} /></div>
                     <div><Label>Mobile number</Label><Input value={form.customer_mobile} onChange={(e)=>setForm({...form,customer_mobile:e.target.value})} placeholder="+1 555 0100" /></div>
-                    <div><Label>Quantity</Label><Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} /></div>
+                    <div className="col-span-2 grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Quantity</Label>
+                        <Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} />
+                      </div>
+                      <div>
+                        <Label>Unit</Label>
+                        <Select value={form.quantity_unit} onValueChange={(v)=>setForm({...form, quantity_unit: v, quantity_unit_other: v === "__other__" ? form.quantity_unit_other : ""})}>
+                          <SelectTrigger><SelectValue placeholder="Select unit" /></SelectTrigger>
+                          <SelectContent>
+                            {QUANTITY_UNITS.map((u)=> <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                            <SelectItem value="__other__">Others</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className={`col-span-2 grid transition-all duration-300 ease-out ${form.quantity_unit === "__other__" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden">
+                          <Input placeholder="Enter unit" value={form.quantity_unit_other} onChange={(e)=>setForm({...form, quantity_unit_other: e.target.value})} maxLength={60} />
+                        </div>
+                      </div>
+                    </div>
                     {form.payment_kind === "invoice" && (
                       <div><Label>Price</Label><Input type="number" step="0.01" value={form.price} onChange={(e)=>setForm({...form,price:e.target.value})} /></div>
                     )}
