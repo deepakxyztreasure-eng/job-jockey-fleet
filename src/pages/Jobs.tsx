@@ -415,7 +415,21 @@ export default function Jobs() {
                 <DialogHeader><DialogTitle>{editing ? "Edit" : "New"} job</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2"><Label>Job title *</Label><Input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} maxLength={150} /></div>
+                    <div className="col-span-2">
+                      <Label>Job title *</Label>
+                      <Select value={form.title_select} onValueChange={(v)=>setForm({...form, title_select: v, title_other: v === "__other__" ? form.title_other : ""})}>
+                        <SelectTrigger><SelectValue placeholder="Select job title" /></SelectTrigger>
+                        <SelectContent>
+                          {TITLE_OPTIONS.map((t)=> <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          <SelectItem value="__other__">Others</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className={`grid transition-all duration-300 ease-out ${form.title_select === "__other__" ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden">
+                          <Input placeholder="Enter job title" value={form.title_other} onChange={(e)=>setForm({...form, title_other: e.target.value})} maxLength={150} />
+                        </div>
+                      </div>
+                    </div>
                     <div className="col-span-2">
                       <Label>Pickup location *</Label>
                       <Select value={form.pickup_location_id} onValueChange={(v)=>setForm({...form,pickup_location_id:v, pickup_other: v === "__other__" ? form.pickup_other : ""})}>
