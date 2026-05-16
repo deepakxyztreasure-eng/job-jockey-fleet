@@ -154,8 +154,12 @@ export default function Jobs() {
   const startEdit = (j: any) => {
     setEditing(j);
     const isOtherPickup = !j.pickup_location_id && !!j.pickup_address;
+    const titleInList = j.title && (TITLE_OPTIONS as readonly string[]).includes(j.title);
+    const unitInList = j.quantity_unit && (QUANTITY_UNITS as readonly string[]).includes(j.quantity_unit);
     setForm({
-      title: j.title, description: j.description ?? "",
+      title_select: titleInList ? j.title : (j.title ? "__other__" : ""),
+      title_other: titleInList ? "" : (j.title ?? ""),
+      description: j.description ?? "",
       pickup_location_id: isOtherPickup ? "__other__" : (j.pickup_location_id ?? ""),
       pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
       delivery_address: j.delivery_address ?? "",
@@ -167,7 +171,10 @@ export default function Jobs() {
       show_price: j.show_price,
       cod_amount: j.cod ? (j.price ?? "") : "",
       customer_name: j.customer_name ?? "", customer_mobile: j.customer_mobile ?? "",
-      quantity: j.quantity ?? "", instructions: j.instructions ?? "",
+      quantity: j.quantity ?? "",
+      quantity_unit: unitInList ? j.quantity_unit : (j.quantity_unit ? "__other__" : ""),
+      quantity_unit_other: unitInList ? "" : (j.quantity_unit ?? ""),
+      instructions: j.instructions ?? "",
     });
     setOpen(true);
   };
