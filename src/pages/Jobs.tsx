@@ -180,10 +180,10 @@ export default function Jobs() {
   };
 
   const save = async () => {
-    const finalTitle = form.title_select === "__other__"
-      ? form.title_other.trim()
-      : form.title_select;
-    if (!finalTitle) return toast.error("Title required");
+    if (!form.title_select) return toast.error("Select job title type");
+    if (!form.title_other.trim()) return toast.error("Job title required");
+    const typeLabel = form.title_select === "__other__" ? "Others" : form.title_select;
+    const finalTitle = `${typeLabel} - ${form.title_other.trim()}`;
     if (!form.pickup_location_id) return toast.error("Pickup location required");
     if (form.pickup_location_id === "__other__" && !form.pickup_other.trim()) return toast.error("Enter pickup location");
     if (!form.delivery_address.trim()) return toast.error("Delivery location required");
