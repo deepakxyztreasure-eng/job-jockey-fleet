@@ -180,7 +180,10 @@ export default function Jobs() {
   };
 
   const save = async () => {
-    if (!form.title.trim()) return toast.error("Title required");
+    const finalTitle = form.title_select === "__other__"
+      ? form.title_other.trim()
+      : form.title_select;
+    if (!finalTitle) return toast.error("Title required");
     if (!form.pickup_location_id) return toast.error("Pickup location required");
     if (form.pickup_location_id === "__other__" && !form.pickup_other.trim()) return toast.error("Enter pickup location");
     if (!form.delivery_address.trim()) return toast.error("Delivery location required");
@@ -188,12 +191,17 @@ export default function Jobs() {
     if (form.payment_kind === "cod" && (!form.cod_amount || isNaN(Number(form.cod_amount)))) return toast.error("Enter COD amount");
     if (form.customer_mobile && !/^[0-9+\-\s()]{7,20}$/.test(form.customer_mobile)) return toast.error("Invalid mobile number");
     if (form.quantity && isNaN(Number(form.quantity))) return toast.error("Quantity must be numeric");
+    if (form.quantity && !form.quantity_unit) return toast.error("Select a quantity unit");
+    if (form.quantity_unit === "__other__" && !form.quantity_unit_other.trim()) return toast.error("Enter quantity unit");
 
     const isOtherPickup = form.pickup_location_id === "__other__";
     const isCod = form.payment_kind === "cod";
+    const finalUnit = form.quantity_unit === "__other__"
+      ? form.quantity_unit_other.trim()
+      : (form.quantity_unit || null);
 
     const payload: any = {
-      title: form.title.trim(),
+      title: finalTitle,
       description: form.description || null,
       pickup_location_id: isOtherPickup ? null : form.pickup_location_id,
       pickup_address: isOtherPickup ? form.pickup_other.trim() : null,
@@ -208,6 +216,7 @@ export default function Jobs() {
       customer_name: form.customer_name || null,
       customer_mobile: form.customer_mobile || null,
       quantity: form.quantity ? Number(form.quantity) : null,
+      quantity_unit: form.quantity ? finalUnit : null,
       instructions: form.instructions || null,
     };
 
