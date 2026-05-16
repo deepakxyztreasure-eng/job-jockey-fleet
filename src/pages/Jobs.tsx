@@ -154,11 +154,15 @@ export default function Jobs() {
   const startEdit = (j: any) => {
     setEditing(j);
     const isOtherPickup = !j.pickup_location_id && !!j.pickup_address;
-    const titleInList = j.title && (TITLE_OPTIONS as readonly string[]).includes(j.title);
+    const rawTitle = j.title ?? "";
+    const sepIdx = rawTitle.indexOf(" - ");
+    const titlePrefix = sepIdx > -1 ? rawTitle.slice(0, sepIdx) : rawTitle;
+    const titleSuffix = sepIdx > -1 ? rawTitle.slice(sepIdx + 3) : "";
+    const prefixInList = (TITLE_OPTIONS as readonly string[]).includes(titlePrefix);
     const unitInList = j.quantity_unit && (QUANTITY_UNITS as readonly string[]).includes(j.quantity_unit);
     setForm({
-      title_select: titleInList ? j.title : (j.title ? "__other__" : ""),
-      title_other: titleInList ? "" : (j.title ?? ""),
+      title_select: prefixInList ? titlePrefix : (rawTitle ? "__other__" : ""),
+      title_other: prefixInList ? titleSuffix : rawTitle,
       description: j.description ?? "",
       pickup_location_id: isOtherPickup ? "__other__" : (j.pickup_location_id ?? ""),
       pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
@@ -180,10 +184,10 @@ export default function Jobs() {
   };
 
   const save = async () => {
-    const finalTitle = form.title_select === "__other__"
-      ? form.title_other.trim()
-      : form.title_select;
-    if (!finalTitle) return toast.error("Title required");
+    if (!form.title_select) return toast.error("Select job title type");
+    if (!form.title_other.trim()) return toast.error("Job title required");
+    const typeLabel = form.title_select === "__other__" ? "Others" : form.title_select;
+    const finalTitle = `${typeLabel} - ${form.title_other.trim()}`;
     if (!form.pickup_location_id) return toast.error("Pickup location required");
     if (form.pickup_location_id === "__other__" && !form.pickup_other.trim()) return toast.error("Enter pickup location");
     if (!form.delivery_address.trim()) return toast.error("Delivery location required");
@@ -417,17 +421,15 @@ export default function Jobs() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
                       <Label>Job title *</Label>
-                      <Select value={form.title_select} onValueChange={(v)=>setForm({...form, title_select: v, title_other: v === "__other__" ? form.title_other : ""})}>
-                        <SelectTrigger><SelectValue placeholder="Select job title" /></SelectTrigger>
-                        <SelectContent>
-                          {TITLE_OPTIONS.map((t)=> <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                          <SelectItem value="__other__">Others</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <div className={`grid transition-all duration-300 ease-out ${form.title_select === "__other__" ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0"}`}>
-                        <div className="overflow-hidden">
-                          <Input placeholder="Enter job title" value={form.title_other} onChange={(e)=>setForm({...form, title_other: e.target.value})} maxLength={150} />
-                        </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select value={form.title_select} onValueChange={(v)=>setForm({...form, title_select: v})}>
+                          <SelectTrigger><SelectValue placeholder="Select job title type" /></SelectTrigger>
+                          <SelectContent>
+                            {TITLE_OPTIONS.map((t)=> <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                            <SelectItem value="__other__">Others</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input placeholder="Enter job title" value={form.title_other} onChange={(e)=>setForm({...form, title_other: e.target.value})} maxLength={150} />
                       </div>
                     </div>
                     <div className="col-span-2">
@@ -480,10 +482,6 @@ export default function Jobs() {
                     <div><Label>Mobile number</Label><Input value={form.customer_mobile} onChange={(e)=>setForm({...form,customer_mobile:e.target.value})} placeholder="+1 555 0100" /></div>
                     <div className="col-span-2 grid grid-cols-2 gap-3">
                       <div>
-                        <Label>Quantity</Label>
-                        <Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} />
-                      </div>
-                      <div>
                         <Label>Unit</Label>
                         <Select value={form.quantity_unit} onValueChange={(v)=>setForm({...form, quantity_unit: v, quantity_unit_other: v === "__other__" ? form.quantity_unit_other : ""})}>
                           <SelectTrigger><SelectValue placeholder="Select unit" /></SelectTrigger>
@@ -492,6 +490,10 @@ export default function Jobs() {
                             <SelectItem value="__other__">Others</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div>
+                        <Label>Quantity</Label>
+                        <Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} />
                       </div>
                       <div className={`col-span-2 grid transition-all duration-300 ease-out ${form.quantity_unit === "__other__" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                         <div className="overflow-hidden">
