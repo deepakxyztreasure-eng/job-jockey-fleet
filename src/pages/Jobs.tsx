@@ -46,14 +46,17 @@ function formatDuration(start?: string | null, end?: string | null) {
 }
 
 const blank = {
-  title:"", description:"", pickup_location_id:"",
+  title_select:"", title_other:"",
+  description:"", pickup_location_id:"",
   pickup_other:"",
   delivery_address:"",
   scheduled_date:"", priority:"standard" as "standard"|"priority",
   payment_kind: "invoice" as "invoice"|"cod",
   invoice_number:"", price:"", show_price:false,
   cod_amount:"",
-  customer_name:"", customer_mobile:"", quantity:"", instructions:"",
+  customer_name:"", customer_mobile:"",
+  quantity:"", quantity_unit:"", quantity_unit_other:"",
+  instructions:"",
 };
 
 export default function Jobs() {
