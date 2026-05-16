@@ -478,10 +478,6 @@ export default function Jobs() {
                     <div><Label>Mobile number</Label><Input value={form.customer_mobile} onChange={(e)=>setForm({...form,customer_mobile:e.target.value})} placeholder="+1 555 0100" /></div>
                     <div className="col-span-2 grid grid-cols-2 gap-3">
                       <div>
-                        <Label>Quantity</Label>
-                        <Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} />
-                      </div>
-                      <div>
                         <Label>Unit</Label>
                         <Select value={form.quantity_unit} onValueChange={(v)=>setForm({...form, quantity_unit: v, quantity_unit_other: v === "__other__" ? form.quantity_unit_other : ""})}>
                           <SelectTrigger><SelectValue placeholder="Select unit" /></SelectTrigger>
@@ -490,6 +486,10 @@ export default function Jobs() {
                             <SelectItem value="__other__">Others</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div>
+                        <Label>Quantity</Label>
+                        <Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} />
                       </div>
                       <div className={`col-span-2 grid transition-all duration-300 ease-out ${form.quantity_unit === "__other__" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                         <div className="overflow-hidden">
