@@ -154,11 +154,15 @@ export default function Jobs() {
   const startEdit = (j: any) => {
     setEditing(j);
     const isOtherPickup = !j.pickup_location_id && !!j.pickup_address;
-    const titleInList = j.title && (TITLE_OPTIONS as readonly string[]).includes(j.title);
+    const rawTitle = j.title ?? "";
+    const sepIdx = rawTitle.indexOf(" - ");
+    const titlePrefix = sepIdx > -1 ? rawTitle.slice(0, sepIdx) : rawTitle;
+    const titleSuffix = sepIdx > -1 ? rawTitle.slice(sepIdx + 3) : "";
+    const prefixInList = (TITLE_OPTIONS as readonly string[]).includes(titlePrefix);
     const unitInList = j.quantity_unit && (QUANTITY_UNITS as readonly string[]).includes(j.quantity_unit);
     setForm({
-      title_select: titleInList ? j.title : (j.title ? "__other__" : ""),
-      title_other: titleInList ? "" : (j.title ?? ""),
+      title_select: prefixInList ? titlePrefix : (rawTitle ? "__other__" : ""),
+      title_other: prefixInList ? titleSuffix : rawTitle,
       description: j.description ?? "",
       pickup_location_id: isOtherPickup ? "__other__" : (j.pickup_location_id ?? ""),
       pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
