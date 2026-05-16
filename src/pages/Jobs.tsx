@@ -478,7 +478,27 @@ export default function Jobs() {
 
                     <div><Label>Customer name</Label><Input value={form.customer_name} onChange={(e)=>setForm({...form,customer_name:e.target.value})} maxLength={120} /></div>
                     <div><Label>Mobile number</Label><Input value={form.customer_mobile} onChange={(e)=>setForm({...form,customer_mobile:e.target.value})} placeholder="+1 555 0100" /></div>
-                    <div><Label>Quantity</Label><Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} /></div>
+                    <div className="col-span-2 grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Quantity</Label>
+                        <Input type="number" min="0" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value})} />
+                      </div>
+                      <div>
+                        <Label>Unit</Label>
+                        <Select value={form.quantity_unit} onValueChange={(v)=>setForm({...form, quantity_unit: v, quantity_unit_other: v === "__other__" ? form.quantity_unit_other : ""})}>
+                          <SelectTrigger><SelectValue placeholder="Select unit" /></SelectTrigger>
+                          <SelectContent>
+                            {QUANTITY_UNITS.map((u)=> <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                            <SelectItem value="__other__">Others</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className={`col-span-2 grid transition-all duration-300 ease-out ${form.quantity_unit === "__other__" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div className="overflow-hidden">
+                          <Input placeholder="Enter unit" value={form.quantity_unit_other} onChange={(e)=>setForm({...form, quantity_unit_other: e.target.value})} maxLength={60} />
+                        </div>
+                      </div>
+                    </div>
                     {form.payment_kind === "invoice" && (
                       <div><Label>Price</Label><Input type="number" step="0.01" value={form.price} onChange={(e)=>setForm({...form,price:e.target.value})} /></div>
                     )}
