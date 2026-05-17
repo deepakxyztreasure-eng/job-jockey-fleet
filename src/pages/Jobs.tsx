@@ -737,10 +737,25 @@ export default function Jobs() {
                         <ShieldCheck className="h-4 w-4 mr-1" />Verify
                       </Button>
                     )}
+                    {isMember && j.created_by === user?.id && (
+                      <Button size="sm" variant="ghost" onClick={()=>startEdit(j)} title={j.pending_edit ? "Edit pending approval" : "Request edit"}>
+                        <Pencil className="h-4 w-4 mr-1" />{j.pending_edit ? "Pending…" : "Edit"}
+                      </Button>
+                    )}
                     {isAdmin && (
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="relative">
+                            <MoreHorizontal className="h-4 w-4" />
+                            {j.pending_edit && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-priority" />}
+                          </Button>
+                        </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {j.pending_edit && (
+                            <DropdownMenuItem onClick={()=>setReviewEditFor(j)}>
+                              <ShieldCheck className="h-4 w-4 mr-2" />Review pending edit
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={()=>openAssign(j)}><UserPlus className="h-4 w-4 mr-2" />{j.assigned_driver_id ? "Reassign driver" : "Assign driver"}</DropdownMenuItem>
                           <DropdownMenuItem onClick={()=>startEdit(j)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
                           {j.proof_image_url && <DropdownMenuItem onClick={()=>viewProof(j.proof_image_url)}><ImageIcon className="h-4 w-4 mr-2" />View proof</DropdownMenuItem>}
