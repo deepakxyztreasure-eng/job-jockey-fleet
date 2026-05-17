@@ -840,6 +840,36 @@ export default function Jobs() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Admin review pending edit dialog */}
+      <Dialog open={!!reviewEditFor} onOpenChange={(v)=>!v && setReviewEditFor(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Review requested edit</DialogTitle></DialogHeader>
+          {reviewEditFor && (
+            <div className="space-y-3 text-sm">
+              <div className="text-muted-foreground">{reviewEditFor.title} · Invoice {reviewEditFor.invoice_number}</div>
+              <div className="rounded-md border divide-y">
+                {Object.entries(reviewEditFor.pending_edit ?? {}).map(([k, v]) => {
+                  const current = (reviewEditFor as any)[k];
+                  const changed = JSON.stringify(current ?? null) !== JSON.stringify(v ?? null);
+                  if (!changed) return null;
+                  return (
+                    <div key={k} className="grid grid-cols-3 gap-2 p-2 text-xs">
+                      <div className="font-medium">{k}</div>
+                      <div className="text-muted-foreground line-through truncate">{String(current ?? "—")}</div>
+                      <div className="text-success truncate">{String(v ?? "—")}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={rejectPendingEdit}><XCircle className="h-4 w-4 mr-2" />Reject</Button>
+            <Button onClick={approvePendingEdit}><CheckCircle2 className="h-4 w-4 mr-2" />Approve</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
