@@ -228,6 +228,30 @@ export default function Jobs() {
     };
 
     if (editing) {
+      if (isMember && editing.created_by !== user?.id) {
+        return toast.error("You cannot edit this job");
+      }
+      // Members: route edits through approval queue
+      if (isMember) {
+        const { error } = await supabase.from("jobs").update({
+          pending_edit: payload,
+          pending_edit_by: user!.id,
+          pending_edit_at: new Date().toISOString(),
+        }).eq("id", editing.id);
+        if (error) return toast.error(error.message);
+        const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "super_admin");
+        if (admins?.length) {
+          await supabase.from("notifications").insert(admins.map((a) => ({
+            user_id: a.user_id,
+            title: "Job edit awaiting approval",
+            body: `${editing.title} (Invoice ${editing.invoice_number})`,
+            type: "edit_requested",
+            job_id: editing.id,
+          })));
+        }
+        toast.success("Edit submitted for super admin approval");
+        setOpen(false); load(); return;
+      }
       const { error } = await supabase.from("jobs").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
     } else {
@@ -237,6 +261,40 @@ export default function Jobs() {
       if (error) return toast.error(error.message);
     }
     toast.success("Saved"); setOpen(false); load();
+  };
+
+  const approvePendingEdit = async () => {
+    if (!reviewEditFor?.pending_edit) return;
+    const { error } = await supabase.from("jobs").update({
+      ...reviewEditFor.pending_edit,
+      pending_edit: null, pending_edit_by: null, pending_edit_at: null,
+    }).eq("id", reviewEditFor.id);
+    if (error) return toast.error(error.message);
+    if (reviewEditFor.pending_edit_by) {
+      await supabase.from("notifications").insert({
+        user_id: reviewEditFor.pending_edit_by,
+        title: "Job edit approved",
+        body: `${reviewEditFor.title} (Invoice ${reviewEditFor.invoice_number})`,
+        type: "edit_approved", job_id: reviewEditFor.id,
+      });
+    }
+    toast.success("Edit applied"); setReviewEditFor(null);
+  };
+  const rejectPendingEdit = async () => {
+    if (!reviewEditFor) return;
+    const { error } = await supabase.from("jobs").update({
+      pending_edit: null, pending_edit_by: null, pending_edit_at: null,
+    }).eq("id", reviewEditFor.id);
+    if (error) return toast.error(error.message);
+    if (reviewEditFor.pending_edit_by) {
+      await supabase.from("notifications").insert({
+        user_id: reviewEditFor.pending_edit_by,
+        title: "Job edit rejected",
+        body: `${reviewEditFor.title} (Invoice ${reviewEditFor.invoice_number})`,
+        type: "edit_rejected", job_id: reviewEditFor.id,
+      });
+    }
+    toast.success("Edit rejected"); setReviewEditFor(null);
   };
 
   const remove = async (id: string) => {
