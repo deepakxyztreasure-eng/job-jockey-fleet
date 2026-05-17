@@ -94,6 +94,9 @@ export default function Jobs() {
   const [verifyFor, setVerifyFor] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
+  // Admin review pending edit modal
+  const [reviewEditFor, setReviewEditFor] = useState<any | null>(null);
+
   // Admin assign-driver modal
   const [assignFor, setAssignFor] = useState<any | null>(null);
   const [assignDriver, setAssignDriver] = useState("");
@@ -225,6 +228,30 @@ export default function Jobs() {
     };
 
     if (editing) {
+      if (isMember && editing.created_by !== user?.id) {
+        return toast.error("You cannot edit this job");
+      }
+      // Members: route edits through approval queue
+      if (isMember) {
+        const { error } = await supabase.from("jobs").update({
+          pending_edit: payload,
+          pending_edit_by: user!.id,
+          pending_edit_at: new Date().toISOString(),
+        }).eq("id", editing.id);
+        if (error) return toast.error(error.message);
+        const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "super_admin");
+        if (admins?.length) {
+          await supabase.from("notifications").insert(admins.map((a) => ({
+            user_id: a.user_id,
+            title: "Job edit awaiting approval",
+            body: `${editing.title} (Invoice ${editing.invoice_number})`,
+            type: "edit_requested",
+            job_id: editing.id,
+          })));
+        }
+        toast.success("Edit submitted for super admin approval");
+        setOpen(false); load(); return;
+      }
       const { error } = await supabase.from("jobs").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
     } else {
@@ -234,6 +261,40 @@ export default function Jobs() {
       if (error) return toast.error(error.message);
     }
     toast.success("Saved"); setOpen(false); load();
+  };
+
+  const approvePendingEdit = async () => {
+    if (!reviewEditFor?.pending_edit) return;
+    const { error } = await supabase.from("jobs").update({
+      ...reviewEditFor.pending_edit,
+      pending_edit: null, pending_edit_by: null, pending_edit_at: null,
+    }).eq("id", reviewEditFor.id);
+    if (error) return toast.error(error.message);
+    if (reviewEditFor.pending_edit_by) {
+      await supabase.from("notifications").insert({
+        user_id: reviewEditFor.pending_edit_by,
+        title: "Job edit approved",
+        body: `${reviewEditFor.title} (Invoice ${reviewEditFor.invoice_number})`,
+        type: "edit_approved", job_id: reviewEditFor.id,
+      });
+    }
+    toast.success("Edit applied"); setReviewEditFor(null);
+  };
+  const rejectPendingEdit = async () => {
+    if (!reviewEditFor) return;
+    const { error } = await supabase.from("jobs").update({
+      pending_edit: null, pending_edit_by: null, pending_edit_at: null,
+    }).eq("id", reviewEditFor.id);
+    if (error) return toast.error(error.message);
+    if (reviewEditFor.pending_edit_by) {
+      await supabase.from("notifications").insert({
+        user_id: reviewEditFor.pending_edit_by,
+        title: "Job edit rejected",
+        body: `${reviewEditFor.title} (Invoice ${reviewEditFor.invoice_number})`,
+        type: "edit_rejected", job_id: reviewEditFor.id,
+      });
+    }
+    toast.success("Edit rejected"); setReviewEditFor(null);
   };
 
   const remove = async (id: string) => {
@@ -251,11 +312,11 @@ export default function Jobs() {
   };
   const submitAssign = async () => {
     if (!assignFor || !assignDriver) return toast.error("Select a driver");
-    if (!assignStart || !assignEnd) return toast.error("Start and end time required");
+    if (!assignStart) return toast.error("Start time required");
     const { error } = await supabase.from("jobs").update({
       assigned_driver_id: assignDriver,
       start_time: new Date(assignStart).toISOString(),
-      end_time: new Date(assignEnd).toISOString(),
+      end_time: assignEnd ? new Date(assignEnd).toISOString() : null,
       status: "assigned" as any,
     }).eq("id", assignFor.id);
     if (error) return toast.error(error.message);
@@ -600,10 +661,10 @@ export default function Jobs() {
           <table className="data-table w-full">
             <thead><tr>
               {isAdmin && <th className="w-8"><Checkbox checked={allChecked} onCheckedChange={toggleAll} /></th>}
-              <th>Job</th><th>Customer</th><th>Pickup</th><th>Driver</th><th>Invoice</th><th>Time</th><th>Payment</th><th>Status</th><th></th>
+              <th>Job</th><th>Customer</th><th>Pickup</th><th>Delivery</th><th>Driver</th><th>Invoice</th><th>Time</th><th>Payment</th><th>Status</th><th></th>
             </tr></thead>
             <tbody>
-              {filtered.length === 0 && <tr><td colSpan={10} className="text-center text-muted-foreground py-8">No jobs match filters</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={11} className="text-center text-muted-foreground py-8">No jobs match filters</td></tr>}
               {filtered.map((j)=>(
                 <tr key={j.id}>
                   {isAdmin && <td><Checkbox checked={selected.has(j.id)} onCheckedChange={()=>toggleOne(j.id)} /></td>}
@@ -621,7 +682,8 @@ export default function Jobs() {
                     <div className="font-medium">{j.customer_name || "—"}</div>
                     <div className="text-muted-foreground">{j.customer_mobile || ""}</div>
                   </td>
-                  <td className="text-muted-foreground">{j.store_locations?.name ?? "—"}</td>
+                  <td className="text-muted-foreground">{j.store_locations?.name ?? (j.pickup_address ?? "—")}</td>
+                  <td className="text-muted-foreground text-xs max-w-[220px] truncate" title={j.delivery_address ?? ""}>{j.delivery_address ?? "—"}</td>
                   <td className="text-muted-foreground">{j.drivers?.full_name ?? <span className="italic">Unassigned</span>}</td>
                   <td className="font-mono text-xs">{j.invoice_number}</td>
                   <td className="text-xs">
@@ -675,10 +737,25 @@ export default function Jobs() {
                         <ShieldCheck className="h-4 w-4 mr-1" />Verify
                       </Button>
                     )}
+                    {isMember && j.created_by === user?.id && (
+                      <Button size="sm" variant="ghost" onClick={()=>startEdit(j)} title={j.pending_edit ? "Edit pending approval" : "Request edit"}>
+                        <Pencil className="h-4 w-4 mr-1" />{j.pending_edit ? "Pending…" : "Edit"}
+                      </Button>
+                    )}
                     {isAdmin && (
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="relative">
+                            <MoreHorizontal className="h-4 w-4" />
+                            {j.pending_edit && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-priority" />}
+                          </Button>
+                        </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {j.pending_edit && (
+                            <DropdownMenuItem onClick={()=>setReviewEditFor(j)}>
+                              <ShieldCheck className="h-4 w-4 mr-2" />Review pending edit
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={()=>openAssign(j)}><UserPlus className="h-4 w-4 mr-2" />{j.assigned_driver_id ? "Reassign driver" : "Assign driver"}</DropdownMenuItem>
                           <DropdownMenuItem onClick={()=>startEdit(j)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
                           {j.proof_image_url && <DropdownMenuItem onClick={()=>viewProof(j.proof_image_url)}><ImageIcon className="h-4 w-4 mr-2" />View proof</DropdownMenuItem>}
@@ -760,6 +837,36 @@ export default function Jobs() {
           <DialogFooter>
             <Button variant="outline" onClick={()=>setAssignFor(null)}>Cancel</Button>
             <Button onClick={submitAssign}>Assign</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin review pending edit dialog */}
+      <Dialog open={!!reviewEditFor} onOpenChange={(v)=>!v && setReviewEditFor(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Review requested edit</DialogTitle></DialogHeader>
+          {reviewEditFor && (
+            <div className="space-y-3 text-sm">
+              <div className="text-muted-foreground">{reviewEditFor.title} · Invoice {reviewEditFor.invoice_number}</div>
+              <div className="rounded-md border divide-y">
+                {Object.entries(reviewEditFor.pending_edit ?? {}).map(([k, v]) => {
+                  const current = (reviewEditFor as any)[k];
+                  const changed = JSON.stringify(current ?? null) !== JSON.stringify(v ?? null);
+                  if (!changed) return null;
+                  return (
+                    <div key={k} className="grid grid-cols-3 gap-2 p-2 text-xs">
+                      <div className="font-medium">{k}</div>
+                      <div className="text-muted-foreground line-through truncate">{String(current ?? "—")}</div>
+                      <div className="text-success truncate">{String(v ?? "—")}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={rejectPendingEdit}><XCircle className="h-4 w-4 mr-2" />Reject</Button>
+            <Button onClick={approvePendingEdit}><CheckCircle2 className="h-4 w-4 mr-2" />Approve</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

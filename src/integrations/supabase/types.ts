@@ -137,6 +137,9 @@ export type Database = {
           instructions: string | null
           invoice_number: string
           payment_status: Database["public"]["Enums"]["payment_status"]
+          pending_edit: Json | null
+          pending_edit_at: string | null
+          pending_edit_by: string | null
           pickup_address: string | null
           pickup_location_id: string | null
           price: number | null
@@ -173,6 +176,9 @@ export type Database = {
           instructions?: string | null
           invoice_number: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          pending_edit?: Json | null
+          pending_edit_at?: string | null
+          pending_edit_by?: string | null
           pickup_address?: string | null
           pickup_location_id?: string | null
           price?: number | null
@@ -209,6 +215,9 @@ export type Database = {
           instructions?: string | null
           invoice_number?: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          pending_edit?: Json | null
+          pending_edit_at?: string | null
+          pending_edit_by?: string | null
           pickup_address?: string | null
           pickup_location_id?: string | null
           price?: number | null
