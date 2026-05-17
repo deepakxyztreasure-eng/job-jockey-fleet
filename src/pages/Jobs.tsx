@@ -682,7 +682,8 @@ export default function Jobs() {
                     <div className="font-medium">{j.customer_name || "—"}</div>
                     <div className="text-muted-foreground">{j.customer_mobile || ""}</div>
                   </td>
-                  <td className="text-muted-foreground">{j.store_locations?.name ?? "—"}</td>
+                  <td className="text-muted-foreground">{j.store_locations?.name ?? (j.pickup_address ?? "—")}</td>
+                  <td className="text-muted-foreground text-xs max-w-[220px] truncate" title={j.delivery_address ?? ""}>{j.delivery_address ?? "—"}</td>
                   <td className="text-muted-foreground">{j.drivers?.full_name ?? <span className="italic">Unassigned</span>}</td>
                   <td className="font-mono text-xs">{j.invoice_number}</td>
                   <td className="text-xs">
