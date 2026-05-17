@@ -312,11 +312,11 @@ export default function Jobs() {
   };
   const submitAssign = async () => {
     if (!assignFor || !assignDriver) return toast.error("Select a driver");
-    if (!assignStart || !assignEnd) return toast.error("Start and end time required");
+    if (!assignStart) return toast.error("Start time required");
     const { error } = await supabase.from("jobs").update({
       assigned_driver_id: assignDriver,
       start_time: new Date(assignStart).toISOString(),
-      end_time: new Date(assignEnd).toISOString(),
+      end_time: assignEnd ? new Date(assignEnd).toISOString() : null,
       status: "assigned" as any,
     }).eq("id", assignFor.id);
     if (error) return toast.error(error.message);
