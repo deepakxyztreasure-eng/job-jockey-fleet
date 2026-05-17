@@ -94,6 +94,9 @@ export default function Jobs() {
   const [verifyFor, setVerifyFor] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
+  // Admin review pending edit modal
+  const [reviewEditFor, setReviewEditFor] = useState<any | null>(null);
+
   // Admin assign-driver modal
   const [assignFor, setAssignFor] = useState<any | null>(null);
   const [assignDriver, setAssignDriver] = useState("");
