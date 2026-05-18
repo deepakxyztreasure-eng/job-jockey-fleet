@@ -23,14 +23,6 @@ const ALL_STATUSES = ["pending","assigned","accepted","in_progress","completion_
 const PAYMENT_STATUSES = ["pending","partial","paid"] as const;
 type DateRange = "all"|"today"|"week"|"month"|"custom";
 
-const TITLE_OPTIONS = [
-  "Asphalt profiling","Asphalt screened","Asphalt hotmix","Aggregate","Beaching Rock","Ballast Rock",
-  "Bedding sand","Brick sand","Bags","Concrete sand","Crushed rock","Crusher dust","Coldstream Rock",
-  "Crushed concrete","Driveway Topping","Drainage Rock","Decorative Stone","Dust","Digger compost",
-  "Filling soil","Granite Rock","Garden blend","Honey Granite","Kids play sand","Lime stone","Lawn Blend",
-  "Mudstone","Mulch","Packing sand","P-gravel","Rubbles","Sand","Soil","Scoria","Topsoil","Tuscan",
-  "Washed sand","White stone","Yellow brick sand",
-] as const;
 const QUANTITY_UNITS = ["Tonnes","Cubic Metres","Number of bags"] as const;
 
 function formatDuration(start?: string | null, end?: string | null) {
