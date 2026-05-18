@@ -160,7 +160,7 @@ export default function Jobs() {
     const sepIdx = rawTitle.indexOf(" - ");
     const titlePrefix = sepIdx > -1 ? rawTitle.slice(0, sepIdx) : rawTitle;
     const titleSuffix = sepIdx > -1 ? rawTitle.slice(sepIdx + 3) : "";
-    const prefixInList = (TITLE_OPTIONS as readonly string[]).includes(titlePrefix);
+    const prefixInList = titleNames.includes(titlePrefix);
     const unitInList = j.quantity_unit && (QUANTITY_UNITS as readonly string[]).includes(j.quantity_unit);
     setForm({
       title_select: prefixInList ? titlePrefix : (rawTitle ? "__other__" : ""),
@@ -485,7 +485,7 @@ export default function Jobs() {
                         <Select value={form.title_select} onValueChange={(v)=>setForm({...form, title_select: v})}>
                           <SelectTrigger><SelectValue placeholder="Select job title type" /></SelectTrigger>
                           <SelectContent>
-                            {TITLE_OPTIONS.map((t)=> <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                            {titleNames.map((t)=> <SelectItem key={t} value={t}>{t}</SelectItem>)}
                             <SelectItem value="__other__">Others</SelectItem>
                           </SelectContent>
                         </Select>
