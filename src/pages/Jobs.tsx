@@ -99,10 +99,11 @@ export default function Jobs() {
   const [assignEnd, setAssignEnd] = useState("");
 
   const load = async () => {
-    const [{ data: js }, { data: ls }, { data: ds }] = await Promise.all([
+    const [{ data: js }, { data: ls }, { data: ds }, { data: ts }] = await Promise.all([
       supabase.from("jobs").select("*").order("created_at", { ascending: false }),
       supabase.from("store_locations").select("id,name,active").order("name"),
       supabase.from("drivers").select("id,full_name,active").order("full_name"),
+      supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
     ]);
     const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
     const drvMap = new Map((ds ?? []).map((d: any) => [d.id, d]));
@@ -111,7 +112,10 @@ export default function Jobs() {
       store_locations: j.pickup_location_id ? locMap.get(j.pickup_location_id) ?? null : null,
       drivers: j.assigned_driver_id ? drvMap.get(j.assigned_driver_id) ?? null : null,
     }));
-    setJobs(enriched); setLocations((ls ?? []).filter((l: any) => l.active !== false)); setDrivers((ds ?? []).filter((d: any) => d.active));
+    setJobs(enriched);
+    setLocations((ls ?? []).filter((l: any) => l.active !== false));
+    setDrivers((ds ?? []).filter((d: any) => d.active));
+    setJobTitles(((ts ?? []) as any[]).filter((t) => t.active !== false));
   };
   useEffect(() => {
     load();
