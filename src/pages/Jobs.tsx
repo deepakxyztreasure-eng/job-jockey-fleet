@@ -149,9 +149,10 @@ export default function Jobs() {
         if (from && d < from) return false;
         if (to && d > to) return false;
       }
+      if (isAdmin && fPendingEdit && !j.pending_edit) return false;
       return true;
     });
-  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin]);
+  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin, fPendingEdit]);
 
   const startCreate = () => { setEditing(null); setForm(blank); setOpen(true); };
   const startEdit = (j: any) => {
