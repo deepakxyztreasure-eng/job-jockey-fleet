@@ -14,6 +14,7 @@ import Drivers from "@/pages/Drivers";
 import StoreLocations from "@/pages/StoreLocations";
 import Users from "@/pages/Users";
 import Admin from "@/pages/Admin";
+import JobTitles from "@/pages/JobTitles";
 import Notifications from "@/pages/Notifications";
 import NotFound from "./pages/NotFound";
 
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/locations" element={<StoreLocations />} />
               <Route path="/users" element={<ProtectedRoute roles={["super_admin"]}><Users /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute roles={["super_admin"]}><Admin /></ProtectedRoute>} />
+              <Route path="/job-titles" element={<ProtectedRoute roles={["super_admin"]}><JobTitles /></ProtectedRoute>} />
               <Route path="/notifications" element={<Notifications />} />
             </Route>
             <Route path="*" element={<NotFound />} />

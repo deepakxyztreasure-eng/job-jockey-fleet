@@ -23,14 +23,6 @@ const ALL_STATUSES = ["pending","assigned","accepted","in_progress","completion_
 const PAYMENT_STATUSES = ["pending","partial","paid"] as const;
 type DateRange = "all"|"today"|"week"|"month"|"custom";
 
-const TITLE_OPTIONS = [
-  "Asphalt profiling","Asphalt screened","Asphalt hotmix","Aggregate","Beaching Rock","Ballast Rock",
-  "Bedding sand","Brick sand","Bags","Concrete sand","Crushed rock","Crusher dust","Coldstream Rock",
-  "Crushed concrete","Driveway Topping","Drainage Rock","Decorative Stone","Dust","Digger compost",
-  "Filling soil","Granite Rock","Garden blend","Honey Granite","Kids play sand","Lime stone","Lawn Blend",
-  "Mudstone","Mulch","Packing sand","P-gravel","Rubbles","Sand","Soil","Scoria","Topsoil","Tuscan",
-  "Washed sand","White stone","Yellow brick sand",
-] as const;
 const QUANTITY_UNITS = ["Tonnes","Cubic Metres","Number of bags"] as const;
 
 function formatDuration(start?: string | null, end?: string | null) {
@@ -66,6 +58,9 @@ export default function Jobs() {
   const isDriver = role === "driver";
 
   const [jobs, setJobs] = useState<any[]>([]);
+  const [jobTitles, setJobTitles] = useState<{ id: string; name: string }[]>([]);
+  const titleNames = useMemo(() => jobTitles.map((t) => t.name), [jobTitles]);
+
   const [locations, setLocations] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -81,6 +76,7 @@ export default function Jobs() {
   const [fRange, setFRange] = useState<DateRange>("all");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
+  const [fPendingEdit, setFPendingEdit] = useState(false);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -104,10 +100,11 @@ export default function Jobs() {
   const [assignEnd, setAssignEnd] = useState("");
 
   const load = async () => {
-    const [{ data: js }, { data: ls }, { data: ds }] = await Promise.all([
+    const [{ data: js }, { data: ls }, { data: ds }, { data: ts }] = await Promise.all([
       supabase.from("jobs").select("*").order("created_at", { ascending: false }),
       supabase.from("store_locations").select("id,name,active").order("name"),
       supabase.from("drivers").select("id,full_name,active").order("full_name"),
+      supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
     ]);
     const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
     const drvMap = new Map((ds ?? []).map((d: any) => [d.id, d]));
@@ -116,7 +113,10 @@ export default function Jobs() {
       store_locations: j.pickup_location_id ? locMap.get(j.pickup_location_id) ?? null : null,
       drivers: j.assigned_driver_id ? drvMap.get(j.assigned_driver_id) ?? null : null,
     }));
-    setJobs(enriched); setLocations((ls ?? []).filter((l: any) => l.active !== false)); setDrivers((ds ?? []).filter((d: any) => d.active));
+    setJobs(enriched);
+    setLocations((ls ?? []).filter((l: any) => l.active !== false));
+    setDrivers((ds ?? []).filter((d: any) => d.active));
+    setJobTitles(((ts ?? []) as any[]).filter((t) => t.active !== false));
   };
   useEffect(() => {
     load();
@@ -149,9 +149,10 @@ export default function Jobs() {
         if (from && d < from) return false;
         if (to && d > to) return false;
       }
+      if (isAdmin && fPendingEdit && !j.pending_edit) return false;
       return true;
     });
-  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin]);
+  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin, fPendingEdit]);
 
   const startCreate = () => { setEditing(null); setForm(blank); setOpen(true); };
   const startEdit = (j: any) => {
@@ -161,7 +162,7 @@ export default function Jobs() {
     const sepIdx = rawTitle.indexOf(" - ");
     const titlePrefix = sepIdx > -1 ? rawTitle.slice(0, sepIdx) : rawTitle;
     const titleSuffix = sepIdx > -1 ? rawTitle.slice(sepIdx + 3) : "";
-    const prefixInList = (TITLE_OPTIONS as readonly string[]).includes(titlePrefix);
+    const prefixInList = titleNames.includes(titlePrefix);
     const unitInList = j.quantity_unit && (QUANTITY_UNITS as readonly string[]).includes(j.quantity_unit);
     setForm({
       title_select: prefixInList ? titlePrefix : (rawTitle ? "__other__" : ""),
@@ -486,7 +487,7 @@ export default function Jobs() {
                         <Select value={form.title_select} onValueChange={(v)=>setForm({...form, title_select: v})}>
                           <SelectTrigger><SelectValue placeholder="Select job title type" /></SelectTrigger>
                           <SelectContent>
-                            {TITLE_OPTIONS.map((t)=> <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                            {titleNames.map((t)=> <SelectItem key={t} value={t}>{t}</SelectItem>)}
                             <SelectItem value="__other__">Others</SelectItem>
                           </SelectContent>
                         </Select>
@@ -636,6 +637,29 @@ export default function Jobs() {
             </>
           )}
         </div>
+        {isAdmin && (() => {
+          const pendingCount = jobs.filter((j) => j.pending_edit).length;
+          return (
+            <div className="mt-3 flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={fPendingEdit ? "default" : "outline"}
+                onClick={() => setFPendingEdit((v) => !v)}
+              >
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Edit requests
+                {pendingCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center rounded-full bg-priority text-priority-foreground text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">
+                    {pendingCount}
+                  </span>
+                )}
+              </Button>
+              {fPendingEdit && (
+                <span className="text-xs text-muted-foreground">Showing jobs awaiting your approval</span>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Bulk bar */}
