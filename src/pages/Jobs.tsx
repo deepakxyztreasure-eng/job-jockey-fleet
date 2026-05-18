@@ -637,6 +637,29 @@ export default function Jobs() {
             </>
           )}
         </div>
+        {isAdmin && (() => {
+          const pendingCount = jobs.filter((j) => j.pending_edit).length;
+          return (
+            <div className="mt-3 flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={fPendingEdit ? "default" : "outline"}
+                onClick={() => setFPendingEdit((v) => !v)}
+              >
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Edit requests
+                {pendingCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center rounded-full bg-priority text-priority-foreground text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">
+                    {pendingCount}
+                  </span>
+                )}
+              </Button>
+              {fPendingEdit && (
+                <span className="text-xs text-muted-foreground">Showing jobs awaiting your approval</span>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Bulk bar */}
