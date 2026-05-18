@@ -76,6 +76,7 @@ export default function Jobs() {
   const [fRange, setFRange] = useState<DateRange>("all");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
+  const [fPendingEdit, setFPendingEdit] = useState(false);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
