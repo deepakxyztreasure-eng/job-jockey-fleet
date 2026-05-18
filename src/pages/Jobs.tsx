@@ -57,6 +57,7 @@ export default function Jobs() {
   const isMember = role === "member";
   const isDriver = role === "driver";
 
+  const [jobs, setJobs] = useState<any[]>([]);
   const [jobTitles, setJobTitles] = useState<{ id: string; name: string }[]>([]);
   const titleNames = useMemo(() => jobTitles.map((t) => t.name), [jobTitles]);
 
