@@ -518,7 +518,7 @@ export default function Jobs() {
                       </div>
                     </div>
 
-                    <div><Label>Scheduled date</Label><Input type="date" value={form.scheduled_date} onChange={(e)=>setForm({...form,scheduled_date:e.target.value})} /></div>
+                    <div><Label>Scheduled start *</Label><Input type="datetime-local" value={form.start_time} onChange={(e)=>setForm({...form,start_time:e.target.value})} /></div>
                     <div><Label>Delivery location *</Label><Input value={form.delivery_address} onChange={(e)=>setForm({...form,delivery_address:e.target.value})} placeholder="Street, city" maxLength={250} /></div>
 
                     <div className="col-span-2 space-y-2">
