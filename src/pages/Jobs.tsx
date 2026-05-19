@@ -196,6 +196,7 @@ export default function Jobs() {
     if (!form.pickup_location_id) return toast.error("Pickup location required");
     if (form.pickup_location_id === "__other__" && !form.pickup_other.trim()) return toast.error("Enter pickup location");
     if (!form.delivery_address.trim()) return toast.error("Delivery location required");
+    if (!form.start_time) return toast.error("Start time required");
     if (form.payment_kind === "invoice" && !form.invoice_number.trim()) return toast.error("Invoice number required");
     if (form.payment_kind === "cod" && (!form.cod_amount || isNaN(Number(form.cod_amount)))) return toast.error("Enter COD amount");
     if (form.customer_mobile && !/^[0-9+\-\s()]{7,20}$/.test(form.customer_mobile)) return toast.error("Invalid mobile number");
