@@ -172,6 +172,7 @@ export default function Jobs() {
       pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
       delivery_address: j.delivery_address ?? "",
       scheduled_date: j.scheduled_date ?? "",
+      start_time: j.start_time ? j.start_time.slice(0,16) : "",
       priority: j.priority,
       payment_kind: j.cod ? "cod" : "invoice",
       invoice_number: j.invoice_number ?? "",
