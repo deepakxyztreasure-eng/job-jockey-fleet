@@ -92,6 +92,8 @@ export default function Jobs() {
 
   // Admin review pending edit modal
   const [reviewEditFor, setReviewEditFor] = useState<any | null>(null);
+  // Job detail modal (driver / member view)
+  const [detailFor, setDetailFor] = useState<any | null>(null);
 
   // Admin assign-driver modal
   const [assignFor, setAssignFor] = useState<any | null>(null);
