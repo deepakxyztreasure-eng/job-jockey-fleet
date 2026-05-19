@@ -1111,7 +1111,7 @@ export default function Jobs() {
                       {j.priority === "priority" && <Flame className="h-4 w-4 text-priority" />}
                       <span className="font-medium">{j.title}</span>
                       {j.cod && (
-                        <span className="text-[10px] uppercase tracking-wide rounded bg-warning/15 text-warning px-1.5 py-0.5">
+                        <span className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${j.payment_status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}>
                           COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
                         </span>
                       )}
