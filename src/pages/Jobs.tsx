@@ -1126,14 +1126,18 @@ export default function Jobs() {
                         </button>
                       )}
                     </div>
-                    {j.scheduled_date && (
-                      <div className="text-xs text-muted-foreground">
-                        {format(new Date(j.scheduled_date), "MMM d, yyyy h:mm a")}
-                      </div>
-                    )}
-
                     {j.start_time && (
-                      <div className="text-xs text-muted-foreground">{j.start_time.replace("T", " ").slice(0, 16)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(j.start_time + " UTC").toLocaleString("en-GB", {
+                          timeZone: "UTC",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </div>
                     )}
                     {j.rejection_reason && (
                       <div className="text-xs text-destructive">Rejected: {j.rejection_reason}</div>
