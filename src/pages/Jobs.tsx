@@ -502,7 +502,7 @@ export default function Jobs() {
                       <Select value={form.pickup_location_id} onValueChange={(v)=>setForm({...form,pickup_location_id:v, pickup_other: v === "__other__" ? form.pickup_other : ""})}>
                         <SelectTrigger><SelectValue placeholder="Select pickup" /></SelectTrigger>
                         <SelectContent>
-                          {locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                          {locations.map((l)=> <SelectItem key={l.id} value={l.id}><span className="font-medium">{l.name}</span>{l.address ? <span className="text-muted-foreground"> — {l.address}</span> : null}</SelectItem>)}
                           <SelectItem value="__other__">Other</SelectItem>
                         </SelectContent>
                       </Select>
