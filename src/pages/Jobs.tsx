@@ -1128,14 +1128,14 @@ export default function Jobs() {
                     </div>
                     {j.start_time && (
                       <div className="text-xs text-muted-foreground">
-                        {new Date(j.start_time + " UTC").toLocaleString("en-GB", {
-                          timeZone: "UTC",
-                          day: "numeric",
+                        {new Date(j.start_time.replace(" ", "T")).toLocaleString("en-US", {
                           month: "short",
+                          day: "numeric",
                           year: "numeric",
                           hour: "numeric",
                           minute: "2-digit",
                           hour12: true,
+                          timeZone: "UTC",
                         })}
                       </div>
                     )}
