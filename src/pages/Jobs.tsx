@@ -102,7 +102,7 @@ export default function Jobs() {
   const load = async () => {
     const [{ data: js }, { data: ls }, { data: ds }, { data: ts }] = await Promise.all([
       supabase.from("jobs").select("*").order("created_at", { ascending: false }),
-      supabase.from("store_locations").select("id,name,active").order("name"),
+      supabase.from("store_locations").select("id,name,address,active").order("name"),
       supabase.from("drivers").select("id,full_name,active").order("full_name"),
       supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
     ]);
