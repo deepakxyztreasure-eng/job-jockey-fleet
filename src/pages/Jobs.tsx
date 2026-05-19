@@ -699,7 +699,14 @@ export default function Jobs() {
                     <div className="flex items-center gap-2">
                       {j.priority === "priority" && <Flame className="h-4 w-4 text-priority" />}
                       <span className="font-medium">{j.title}</span>
-                      {j.cod && <span className="text-[10px] uppercase tracking-wide rounded bg-warning/15 text-warning px-1.5 py-0.5">COD</span>}
+                      {j.cod && (
+                        <span className="text-[10px] uppercase tracking-wide rounded bg-warning/15 text-warning px-1.5 py-0.5">
+                          COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
+                        </span>
+                      )}
+                      {!j.cod && j.show_price && j.price != null && (
+                        <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">${Number(j.price).toFixed(2)}</span>
+                      )}
                       {j.proof_image_url && <button onClick={()=>viewProof(j.proof_image_url)} title="View proof"><ImageIcon className="h-3.5 w-3.5 text-muted-foreground" /></button>}
                     </div>
                     {j.scheduled_date && <div className="text-xs text-muted-foreground">{format(new Date(j.scheduled_date), "MMM d, yyyy")}</div>}
