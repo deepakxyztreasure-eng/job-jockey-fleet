@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Flame, Pencil, Trash2, Download, Filter, ImageIcon, CheckCircle2, XCircle, MoreHorizontal, ShieldCheck, UserPlus } from "lucide-react";
+import { Plus, Flame, Pencil, Trash2, Download, Filter, ImageIcon, CheckCircle2, XCircle, MoreHorizontal, ShieldCheck, UserPlus, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
