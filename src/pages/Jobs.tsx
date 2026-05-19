@@ -142,7 +142,7 @@ export default function Jobs() {
 
   const load = async () => {
     const [{ data: js }, { data: ls }, { data: ds }, { data: ts }] = await Promise.all([
-      supabase.from("jobs").select("*").order("created_at", { ascending: false }),
+      supabase.from("jobs").select("*").order("start_time", { ascending: true }),
       supabase.from("store_locations").select("id,name,address,active").order("name"),
       supabase.from("drivers").select("id,full_name,active").order("full_name"),
       supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
@@ -1111,7 +1111,7 @@ export default function Jobs() {
                       {j.priority === "priority" && <Flame className="h-4 w-4 text-priority" />}
                       <span className="font-medium">{j.title}</span>
                       {j.cod && (
-                        <span className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${j.payment_status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}>
+                        <span className="text-[10px] uppercase tracking-wide rounded bg-warning/15 text-warning px-1.5 py-0.5">
                           COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
                         </span>
                       )}
