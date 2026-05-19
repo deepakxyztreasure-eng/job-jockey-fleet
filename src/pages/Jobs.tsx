@@ -1131,11 +1131,10 @@ export default function Jobs() {
                         {format(new Date(j.scheduled_date), "MMM d, yyyy h:mm a")}
                       </div>
                     )}
-                    {(j.start_time || j.scheduled_date) && (
+
+                    {j.start_time && (
                       <div className="text-xs text-muted-foreground">
-                        {j.start_time
-                          ? format(new Date(j.start_time), "MMM d, yyyy h:mm a")
-                          : format(new Date(j.scheduled_date), "MMM d, yyyy")}
+                        {format(new Date(j.start_time), "MMM d, yyyy h:mm a")}
                       </div>
                     )}
                     {j.rejection_reason && (
