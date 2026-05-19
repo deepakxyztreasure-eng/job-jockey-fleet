@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Flame, Pencil, Trash2, Download, Filter, ImageIcon, CheckCircle2, XCircle, MoreHorizontal, ShieldCheck, UserPlus } from "lucide-react";
+import { Plus, Flame, Pencil, Trash2, Download, Filter, ImageIcon, CheckCircle2, XCircle, MoreHorizontal, ShieldCheck, UserPlus, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
@@ -42,7 +42,7 @@ const blank = {
   description:"", pickup_location_id:"",
   pickup_other:"",
   delivery_address:"",
-  scheduled_date:"", priority:"standard" as "standard"|"priority",
+  scheduled_date:"", start_time:"", priority:"standard" as "standard"|"priority",
   payment_kind: "invoice" as "invoice"|"cod",
   invoice_number:"", price:"", show_price:false,
   cod_amount:"",
@@ -92,6 +92,8 @@ export default function Jobs() {
 
   // Admin review pending edit modal
   const [reviewEditFor, setReviewEditFor] = useState<any | null>(null);
+  // Job detail modal (driver / member view)
+  const [detailFor, setDetailFor] = useState<any | null>(null);
 
   // Admin assign-driver modal
   const [assignFor, setAssignFor] = useState<any | null>(null);
@@ -102,7 +104,7 @@ export default function Jobs() {
   const load = async () => {
     const [{ data: js }, { data: ls }, { data: ds }, { data: ts }] = await Promise.all([
       supabase.from("jobs").select("*").order("created_at", { ascending: false }),
-      supabase.from("store_locations").select("id,name,active").order("name"),
+      supabase.from("store_locations").select("id,name,address,active").order("name"),
       supabase.from("drivers").select("id,full_name,active").order("full_name"),
       supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
     ]);
@@ -172,6 +174,7 @@ export default function Jobs() {
       pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
       delivery_address: j.delivery_address ?? "",
       scheduled_date: j.scheduled_date ?? "",
+      start_time: j.start_time ? j.start_time.slice(0,16) : "",
       priority: j.priority,
       payment_kind: j.cod ? "cod" : "invoice",
       invoice_number: j.invoice_number ?? "",
@@ -195,6 +198,7 @@ export default function Jobs() {
     if (!form.pickup_location_id) return toast.error("Pickup location required");
     if (form.pickup_location_id === "__other__" && !form.pickup_other.trim()) return toast.error("Enter pickup location");
     if (!form.delivery_address.trim()) return toast.error("Delivery location required");
+    if (!form.start_time) return toast.error("Start time required");
     if (form.payment_kind === "invoice" && !form.invoice_number.trim()) return toast.error("Invoice number required");
     if (form.payment_kind === "cod" && (!form.cod_amount || isNaN(Number(form.cod_amount)))) return toast.error("Enter COD amount");
     if (form.customer_mobile && !/^[0-9+\-\s()]{7,20}$/.test(form.customer_mobile)) return toast.error("Invalid mobile number");
@@ -215,7 +219,8 @@ export default function Jobs() {
       pickup_address: isOtherPickup ? form.pickup_other.trim() : null,
       delivery_location_id: null,
       delivery_address: form.delivery_address.trim(),
-      scheduled_date: form.scheduled_date || null,
+      scheduled_date: form.start_time ? form.start_time.slice(0,10) : (form.scheduled_date || null),
+      start_time: form.start_time ? new Date(form.start_time).toISOString() : null,
       priority: form.priority,
       invoice_number: isCod ? "" : form.invoice_number.trim(),
       price: isCod ? Number(form.cod_amount) : (form.price ? Number(form.price) : null),
@@ -499,7 +504,7 @@ export default function Jobs() {
                       <Select value={form.pickup_location_id} onValueChange={(v)=>setForm({...form,pickup_location_id:v, pickup_other: v === "__other__" ? form.pickup_other : ""})}>
                         <SelectTrigger><SelectValue placeholder="Select pickup" /></SelectTrigger>
                         <SelectContent>
-                          {locations.map((l)=> <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                          {locations.map((l)=> <SelectItem key={l.id} value={l.id}><span className="font-medium">{l.name}</span>{l.address ? <span className="text-muted-foreground"> — {l.address}</span> : null}</SelectItem>)}
                           <SelectItem value="__other__">Other</SelectItem>
                         </SelectContent>
                       </Select>
@@ -515,7 +520,7 @@ export default function Jobs() {
                       </div>
                     </div>
 
-                    <div><Label>Scheduled date</Label><Input type="date" value={form.scheduled_date} onChange={(e)=>setForm({...form,scheduled_date:e.target.value})} /></div>
+                    <div><Label>Scheduled start *</Label><Input type="datetime-local" value={form.start_time} onChange={(e)=>setForm({...form,start_time:e.target.value})} /></div>
                     <div><Label>Delivery location *</Label><Input value={form.delivery_address} onChange={(e)=>setForm({...form,delivery_address:e.target.value})} placeholder="Street, city" maxLength={250} /></div>
 
                     <div className="col-span-2 space-y-2">
@@ -696,7 +701,14 @@ export default function Jobs() {
                     <div className="flex items-center gap-2">
                       {j.priority === "priority" && <Flame className="h-4 w-4 text-priority" />}
                       <span className="font-medium">{j.title}</span>
-                      {j.cod && <span className="text-[10px] uppercase tracking-wide rounded bg-warning/15 text-warning px-1.5 py-0.5">COD</span>}
+                      {j.cod && (
+                        <span className="text-[10px] uppercase tracking-wide rounded bg-warning/15 text-warning px-1.5 py-0.5">
+                          COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
+                        </span>
+                      )}
+                      {!j.cod && j.show_price && j.price != null && (
+                        <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">${Number(j.price).toFixed(2)}</span>
+                      )}
                       {j.proof_image_url && <button onClick={()=>viewProof(j.proof_image_url)} title="View proof"><ImageIcon className="h-3.5 w-3.5 text-muted-foreground" /></button>}
                     </div>
                     {j.scheduled_date && <div className="text-xs text-muted-foreground">{format(new Date(j.scheduled_date), "MMM d, yyyy")}</div>}
@@ -735,8 +747,11 @@ export default function Jobs() {
                   </td>
                   <td><StatusBadge status={j.status} /></td>
                   <td className="text-right whitespace-nowrap">
+                    {isDriver && (
+                      <Button size="sm" variant="ghost" onClick={()=>setDetailFor(j)} className="mr-1"><Eye className="h-4 w-4 mr-1" />Details</Button>
+                    )}
                     {isDriver && (j.status === "assigned" || j.status === "pending") && (
-                      <div className="flex gap-1 justify-end">
+                      <div className="inline-flex gap-1 justify-end">
                         <Button size="sm" variant="outline" onClick={()=>driverAccept(j)}>Accept</Button>
                         <Button size="sm" variant="ghost" onClick={()=>driverReject(j)}>Reject</Button>
                       </div>
@@ -892,6 +907,40 @@ export default function Jobs() {
             <Button variant="outline" onClick={rejectPendingEdit}><XCircle className="h-4 w-4 mr-2" />Reject</Button>
             <Button onClick={approvePendingEdit}><CheckCircle2 className="h-4 w-4 mr-2" />Approve</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Job detail dialog (driver view) */}
+      <Dialog open={!!detailFor} onOpenChange={(v)=>!v && setDetailFor(null)}>
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Job details</DialogTitle></DialogHeader>
+          {detailFor && (() => {
+            const j = detailFor;
+            const row = (label: string, val: any) => (
+              <div className="grid grid-cols-3 gap-2 py-2 border-b text-sm">
+                <div className="text-muted-foreground">{label}</div>
+                <div className="col-span-2 font-medium break-words">{val ?? "—"}</div>
+              </div>
+            );
+            return (
+              <div className="text-sm">
+                {row("Job title", j.title)}
+                {row("Pickup location", j.store_locations ? `${j.store_locations.name}${j.store_locations.address ? " — " + j.store_locations.address : ""}` : (j.pickup_address || "—"))}
+                {row("Scheduled date (time)", j.start_time ? format(new Date(j.start_time), "MMM d, yyyy h:mm a") : (j.scheduled_date ? format(new Date(j.scheduled_date), "MMM d, yyyy") : "—"))}
+                {row("Delivery location", j.delivery_address)}
+                {row("Payment type", j.cod ? `Cash on Delivery (COD)${j.price != null ? ` — $${Number(j.price).toFixed(2)}` : ""}` : "Invoice")}
+                {row("Invoice number", j.invoice_number || "—")}
+                {row("COD", j.cod ? "Yes" : "No")}
+                {row("Customer name", j.customer_name)}
+                {row("Mobile number", j.customer_mobile)}
+                {row("Unit", j.quantity_unit)}
+                {row("Quantity", j.quantity)}
+                {row("Instructions / notes", j.instructions)}
+                {row("Product description", j.description)}
+              </div>
+            );
+          })()}
+          <DialogFooter><Button variant="outline" onClick={()=>setDetailFor(null)}>Close</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
