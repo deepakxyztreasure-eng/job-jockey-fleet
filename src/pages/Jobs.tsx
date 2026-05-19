@@ -909,6 +909,40 @@ export default function Jobs() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Job detail dialog (driver view) */}
+      <Dialog open={!!detailFor} onOpenChange={(v)=>!v && setDetailFor(null)}>
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Job details</DialogTitle></DialogHeader>
+          {detailFor && (() => {
+            const j = detailFor;
+            const row = (label: string, val: any) => (
+              <div className="grid grid-cols-3 gap-2 py-2 border-b text-sm">
+                <div className="text-muted-foreground">{label}</div>
+                <div className="col-span-2 font-medium break-words">{val ?? "—"}</div>
+              </div>
+            );
+            return (
+              <div className="text-sm">
+                {row("Job title", j.title)}
+                {row("Pickup location", j.store_locations ? `${j.store_locations.name}${j.store_locations.address ? " — " + j.store_locations.address : ""}` : (j.pickup_address || "—"))}
+                {row("Scheduled date (time)", j.start_time ? format(new Date(j.start_time), "MMM d, yyyy h:mm a") : (j.scheduled_date ? format(new Date(j.scheduled_date), "MMM d, yyyy") : "—"))}
+                {row("Delivery location", j.delivery_address)}
+                {row("Payment type", j.cod ? `Cash on Delivery (COD)${j.price != null ? ` — $${Number(j.price).toFixed(2)}` : ""}` : "Invoice")}
+                {row("Invoice number", j.invoice_number || "—")}
+                {row("COD", j.cod ? "Yes" : "No")}
+                {row("Customer name", j.customer_name)}
+                {row("Mobile number", j.customer_mobile)}
+                {row("Unit", j.quantity_unit)}
+                {row("Quantity", j.quantity)}
+                {row("Instructions / notes", j.instructions)}
+                {row("Product description", j.description)}
+              </div>
+            );
+          })()}
+          <DialogFooter><Button variant="outline" onClick={()=>setDetailFor(null)}>Close</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
