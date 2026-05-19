@@ -42,7 +42,7 @@ const blank = {
   description:"", pickup_location_id:"",
   pickup_other:"",
   delivery_address:"",
-  scheduled_date:"", priority:"standard" as "standard"|"priority",
+  scheduled_date:"", start_time:"", priority:"standard" as "standard"|"priority",
   payment_kind: "invoice" as "invoice"|"cod",
   invoice_number:"", price:"", show_price:false,
   cod_amount:"",
