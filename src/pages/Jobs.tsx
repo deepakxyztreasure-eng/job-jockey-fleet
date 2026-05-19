@@ -1133,9 +1133,7 @@ export default function Jobs() {
                     )}
 
                     {j.start_time && (
-                      <div className="text-xs text-muted-foreground">
-                        {format(new Date(j.start_time), "MMM d, yyyy h:mm a")}
-                      </div>
+                      <div className="text-xs text-muted-foreground">{j.start_time.replace("T", " ").slice(0, 16)}</div>
                     )}
                     {j.rejection_reason && (
                       <div className="text-xs text-destructive">Rejected: {j.rejection_reason}</div>
