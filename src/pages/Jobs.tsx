@@ -1131,15 +1131,7 @@ export default function Jobs() {
 
                     {j.start_time && (
                       <div className="text-xs text-muted-foreground">
-                        {new Intl.DateTimeFormat("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                          hour12: true,
-                          timeZone: "UTC",
-                        }).format(new Date(j.start_time.replace(" ", "T")))}
+                        {format(new Date(j.start_time), "MMM d, yyyy h:mm a")}
                       </div>
                     )}
                     {j.rejection_reason && (
