@@ -719,7 +719,7 @@ export default function Jobs() {
                       <Label>Scheduled start *</Label>
                       <Input
                         type="datetime-local"
-                        value={format(new Date(form.start_time), "MMM d, yyyy h:mm a")}
+                        value={form.start_time}
                         onChange={(e) => setForm({ ...form, start_time: e.target.value })}
                       />
                     </div>
