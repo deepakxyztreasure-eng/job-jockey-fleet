@@ -61,8 +61,8 @@ export default function CheckoutLogs() {
     const dMap = new Map((drvs ?? []).map((d: any) => [d.id, d]));
     setRows(
       sessions.map((r) => {
-        const d = r.driver_id ? dMap.get(r.driver_id) : null;
-        const p = pMap.get(r.user_id);
+        const d: any = r.driver_id ? dMap.get(r.driver_id) : null;
+        const p: any = pMap.get(r.user_id);
         return {
           ...r,
           driver_name: d?.full_name ?? p?.full_name ?? "—",
