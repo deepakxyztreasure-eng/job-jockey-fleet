@@ -55,6 +55,17 @@ type DateRange = "all" | "today" | "week" | "month" | "custom";
 
 const QUANTITY_UNITS = ["Tonnes", "Cubic Metres", "Number of bags"] as const;
 
+// Format an ISO/UTC timestamp into the value expected by <input type="datetime-local">
+// (local time, no timezone shift).
+const formatDateTimeLocal = (dateString?: string | null) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60000);
+  return localDate.toISOString().slice(0, 16);
+};
+
 function formatDuration(start?: string | null, end?: string | null) {
   if (!start || !end) return null;
   const ms = new Date(end).getTime() - new Date(start).getTime();
