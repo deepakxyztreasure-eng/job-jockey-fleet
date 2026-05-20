@@ -4,9 +4,11 @@ import { AppSidebar } from "@/components/AppSidebar";
 import DriverChecklistDialog from "@/components/DriverChecklistDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 
 export default function AppLayout() {
-  const { role } = useAuth();
+  const { role, signOut } = useAuth();
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -17,7 +19,14 @@ export default function AppLayout() {
               <SidebarTrigger />
               <h1 className="font-semibold text-sm text-foreground/80">Operations Console</h1>
             </div>
-            <Badge variant="secondary" className="capitalize">{role?.replace("_"," ")}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="capitalize">{role?.replace("_"," ")}</Badge>
+              {role === "driver" && (
+                <Button size="sm" variant="destructive" onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-1" /> Exit
+                </Button>
+              )}
+            </div>
           </header>
           <main className="flex-1 p-6 bg-background">
             <Outlet />
