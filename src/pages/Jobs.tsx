@@ -1128,9 +1128,10 @@ export default function Jobs() {
                         </button>
                       )}
                     </div>
+
                     {j.start_time && (
                       <div className="text-xs text-muted-foreground">
-                        {new Date(j.start_time.replace(" ", "T")).toLocaleString("en-US", {
+                        {new Intl.DateTimeFormat("en-US", {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
@@ -1138,7 +1139,7 @@ export default function Jobs() {
                           minute: "2-digit",
                           hour12: true,
                           timeZone: "UTC",
-                        })}
+                        }).format(new Date(j.start_time.replace(" ", "T")))}
                       </div>
                     )}
                     {j.rejection_reason && (
