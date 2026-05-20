@@ -21,6 +21,7 @@ export function AppSidebar() {
     { title: "Store Locations", url: "/locations", icon: MapPin },
     { title: "Job Titles", url: "/job-titles", icon: Tag },
     { title: "Users & Roles", url: "/users", icon: ShieldCheck },
+    { title: "Driver Checkout Logs", url: "/checkout-logs", icon: ClipboardList },
     { title: "Admin", url: "/admin", icon: UserCog },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
