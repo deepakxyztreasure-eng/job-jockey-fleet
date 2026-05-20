@@ -412,8 +412,8 @@ export default function Jobs() {
   const openAssign = (j: any) => {
     setAssignFor(j);
     setAssignDriver(j.assigned_driver_id ?? "");
-    setAssignStart(j.start_time ? j.start_time.slice(0, 16) : "");
-    setAssignEnd(j.end_time ? j.end_time.slice(0, 16) : "");
+    setAssignStart(formatDateTimeLocal(j.start_time));
+    setAssignEnd(formatDateTimeLocal(j.end_time));
   };
   const submitAssign = async () => {
     if (!assignFor || !assignDriver) return toast.error("Select a driver");
