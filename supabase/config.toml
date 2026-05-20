@@ -11,3 +11,7 @@ verify_jwt = true
 
 [functions.seed-team]
 verify_jwt = false
+
+[functions.send-driver-checkout]
+verify_jwt = true
+

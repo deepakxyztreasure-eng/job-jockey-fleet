@@ -3,7 +3,7 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Briefcase, Users, MapPin, ShieldCheck, Truck, Bell, LogOut, UserCog, Tag } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, MapPin, ShieldCheck, Truck, Bell, LogOut, UserCog, Tag, ClipboardList } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/jodha/logo.jpg";
@@ -21,6 +21,7 @@ export function AppSidebar() {
     { title: "Store Locations", url: "/locations", icon: MapPin },
     { title: "Job Titles", url: "/job-titles", icon: Tag },
     { title: "Users & Roles", url: "/users", icon: ShieldCheck },
+    { title: "Driver Checkout Logs", url: "/checkout-logs", icon: ClipboardList },
     { title: "Admin", url: "/admin", icon: UserCog },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
@@ -73,7 +74,7 @@ export function AppSidebar() {
           </div>
         )}
         <Button variant="ghost" size="sm" onClick={signOut} className="w-full justify-start text-sidebar-foreground hover:text-white hover:bg-sidebar-accent">
-          <LogOut className="h-4 w-4 mr-2" />{!collapsed && "Sign out"}
+          <LogOut className="h-4 w-4 mr-2" />{!collapsed && (role === "driver" ? "Exit" : "Sign out")}
         </Button>
       </SidebarFooter>
     </Sidebar>

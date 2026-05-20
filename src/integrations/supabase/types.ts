@@ -78,6 +78,42 @@ export type Database = {
           },
         ]
       }
+      driver_sessions: {
+        Row: {
+          created_at: string
+          driver_id: string | null
+          id: string
+          login_time: string
+          logout_time: string | null
+          status: string
+          total_minutes: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id?: string | null
+          id?: string
+          login_time?: string
+          logout_time?: string | null
+          status?: string
+          total_minutes?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string | null
+          id?: string
+          login_time?: string
+          logout_time?: string | null
+          status?: string
+          total_minutes?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           active: boolean

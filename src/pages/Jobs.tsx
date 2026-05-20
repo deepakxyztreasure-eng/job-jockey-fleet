@@ -55,6 +55,17 @@ type DateRange = "all" | "today" | "week" | "month" | "custom";
 
 const QUANTITY_UNITS = ["Tonnes", "Cubic Metres", "Number of bags"] as const;
 
+// Format an ISO/UTC timestamp into the value expected by <input type="datetime-local">
+// (local time, no timezone shift).
+const formatDateTimeLocal = (dateString?: string | null) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60000);
+  return localDate.toISOString().slice(0, 16);
+};
+
 function formatDuration(start?: string | null, end?: string | null) {
   if (!start || !end) return null;
   const ms = new Date(end).getTime() - new Date(start).getTime();
@@ -234,7 +245,7 @@ export default function Jobs() {
       pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
       delivery_address: j.delivery_address ?? "",
       scheduled_date: j.scheduled_date ?? "",
-      start_time: j.start_time ? j.start_time.slice(0, 16) : "",
+      start_time: formatDateTimeLocal(j.start_time),
       priority: j.priority,
       payment_kind: j.cod ? "cod" : "invoice",
       invoice_number: j.invoice_number ?? "",
@@ -401,8 +412,8 @@ export default function Jobs() {
   const openAssign = (j: any) => {
     setAssignFor(j);
     setAssignDriver(j.assigned_driver_id ?? "");
-    setAssignStart(j.start_time ? j.start_time.slice(0, 16) : "");
-    setAssignEnd(j.end_time ? j.end_time.slice(0, 16) : "");
+    setAssignStart(formatDateTimeLocal(j.start_time));
+    setAssignEnd(formatDateTimeLocal(j.end_time));
   };
   const submitAssign = async () => {
     if (!assignFor || !assignDriver) return toast.error("Select a driver");
