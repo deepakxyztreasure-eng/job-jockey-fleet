@@ -15,6 +15,7 @@ import StoreLocations from "@/pages/StoreLocations";
 import Users from "@/pages/Users";
 import Admin from "@/pages/Admin";
 import JobTitles from "@/pages/JobTitles";
+import CheckoutLogs from "@/pages/CheckoutLogs";
 import Notifications from "@/pages/Notifications";
 import NotFound from "./pages/NotFound";
 
