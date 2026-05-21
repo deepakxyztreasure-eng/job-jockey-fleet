@@ -1504,7 +1504,7 @@ export default function Jobs() {
               const row = (label: string, val: any) => (
                 <div className="grid grid-cols-3 gap-2 py-2 border-b text-sm">
                   <div className="text-muted-foreground">{label}</div>
-                  <div className="sm:col-span-2 font-medium break-words">{val ?? "—"}</div>
+                  <div className="col-span-2 font-medium break-words">{val ?? "—"}</div>
                 </div>
               );
               return (
