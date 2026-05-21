@@ -106,13 +106,13 @@ export default function Dashboard() {
 
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
         {cards.map((c) => (
-          <div key={c.label} className="stat-card">
+          <div key={c.label} className="stat-card !p-3 sm:!p-5">
             <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">{c.label}</p>
-                <p className={`text-2xl font-semibold mt-2 ${c.color}`}>{c.value}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide truncate">{c.label}</p>
+                <p className={`text-lg sm:text-2xl font-semibold mt-1 sm:mt-2 ${c.color}`}>{c.value}</p>
               </div>
-              <c.icon className={`h-5 w-5 ${c.color}`} />
+              <c.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${c.color} shrink-0`} />
             </div>
           </div>
         ))}
