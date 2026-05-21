@@ -140,7 +140,34 @@ export default function CheckoutLogs() {
       </div>
 
       <div className="rounded-xl border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y">
+          {loading && <div className="text-center text-muted-foreground py-8 text-sm">Loading…</div>}
+          {!loading && pageRows.length === 0 && (
+            <div className="text-center text-muted-foreground py-8 text-sm">No sessions found</div>
+          )}
+          {pageRows.map((r) => (
+            <div key={r.id} className="p-3 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-medium text-sm truncate">{r.driver_name}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{r.driver_email}</div>
+                </div>
+                {r.status === "online" ? (
+                  <Badge className="bg-success/15 text-success hover:bg-success/15">Online</Badge>
+                ) : (
+                  <Badge variant="secondary">Logged Out</Badge>
+                )}
+              </div>
+              <div className="text-[11px] text-muted-foreground space-y-0.5">
+                <div>In: <span className="text-foreground">{format(new Date(r.login_time), "MMM d, h:mm a")}</span></div>
+                <div>Out: <span className="text-foreground">{r.logout_time ? format(new Date(r.logout_time), "MMM d, h:mm a") : "—"}</span></div>
+                <div>Duration: <span className="text-foreground font-medium">{fmtDur(r.total_minutes)}</span></div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden md:block overflow-x-auto">
           <table className="data-table w-full text-sm">
             <thead>
               <tr>
