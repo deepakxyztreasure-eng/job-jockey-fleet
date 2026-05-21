@@ -74,7 +74,7 @@ export function AppSidebar() {
           </div>
         )}
         <Button variant="ghost" size="sm" onClick={signOut} className="w-full justify-start text-sidebar-foreground hover:text-white hover:bg-sidebar-accent">
-          <LogOut className="h-4 w-4 mr-2" />{!collapsed && (role === "driver" ? "Exit" : "Sign out")}
+          <LogOut className="h-4 w-4 mr-2" />{!collapsed && "Logout"}
         </Button>
       </SidebarFooter>
     </Sidebar>
