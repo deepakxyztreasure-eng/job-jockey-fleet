@@ -662,7 +662,7 @@ export default function Jobs() {
                   <DialogTitle>{editing ? "Edit" : "New"} job</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="col-span-2">
                       <Label>Job title *</Label>
                       <div className="grid grid-cols-2 gap-2">
