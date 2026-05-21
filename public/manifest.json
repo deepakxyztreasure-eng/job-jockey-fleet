@@ -1,0 +1,15 @@
+{
+  "name": "Jodha Group Operations",
+  "short_name": "Jodha Ops",
+  "description": "Jodha Group operations console — jobs, drivers and deliveries.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "icons": [
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
 export default function AppLayout() {
-  const { role, signOut } = useAuth();
+  const { role, driverExit } = useAuth();
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -22,7 +22,15 @@ export default function AppLayout() {
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="capitalize">{role?.replace("_"," ")}</Badge>
               {role === "driver" && (
-                <Button size="sm" variant="destructive" onClick={signOut}>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => {
+                    if (confirm("End your working day? This will close your session and notify the admin.")) {
+                      driverExit();
+                    }
+                  }}
+                >
                   <LogOut className="h-4 w-4 mr-1" /> Exit
                 </Button>
               )}

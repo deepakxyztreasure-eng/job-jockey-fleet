@@ -164,6 +164,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Plain logout — only ends the auth session, does NOT close the driver's working day
+    await supabase.auth.signOut();
+    setRole(null);
+  };
+
+  const driverExit = async () => {
+    // Exit = end of working day. Close driver session + notify admin, then sign out.
     if (role === "driver") {
       try {
         await closeDriverSessionAndNotify();
@@ -173,10 +180,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     await supabase.auth.signOut();
     setRole(null);
-  };
-
-  const driverExit = async () => {
-    await signOut();
   };
 
   return (
