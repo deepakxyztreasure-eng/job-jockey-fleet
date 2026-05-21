@@ -663,7 +663,7 @@ export default function Jobs() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <Label>Job title *</Label>
                       <div className="grid grid-cols-2 gap-2">
                         <Select value={form.title_select} onValueChange={(v) => setForm({ ...form, title_select: v })}>
@@ -687,7 +687,7 @@ export default function Jobs() {
                         />
                       </div>
                     </div>
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <Label>Pickup location *</Label>
                       <Select
                         value={form.pickup_location_id}
@@ -744,7 +744,7 @@ export default function Jobs() {
                       />
                     </div>
 
-                    <div className="col-span-2 space-y-2">
+                    <div className="sm:col-span-2 space-y-2">
                       <Label>Payment type *</Label>
                       <RadioGroup
                         value={form.payment_kind}
@@ -815,7 +815,7 @@ export default function Jobs() {
                         placeholder="+1 555 0100"
                       />
                     </div>
-                    <div className="col-span-2 grid grid-cols-2 gap-3">
+                    <div className="sm:col-span-2 grid grid-cols-2 gap-3">
                       <div>
                         <Label>Unit</Label>
                         <Select
@@ -875,7 +875,7 @@ export default function Jobs() {
                       </div>
                     )}
 
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <Label>Instructions / notes</Label>
                       <Textarea
                         value={form.instructions}
@@ -884,7 +884,7 @@ export default function Jobs() {
                         placeholder="Handling notes, delivery window, etc."
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <Label>Product description</Label>
                       <Textarea
                         value={form.description}
@@ -1504,7 +1504,7 @@ export default function Jobs() {
               const row = (label: string, val: any) => (
                 <div className="grid grid-cols-3 gap-2 py-2 border-b text-sm">
                   <div className="text-muted-foreground">{label}</div>
-                  <div className="col-span-2 font-medium break-words">{val ?? "—"}</div>
+                  <div className="sm:col-span-2 font-medium break-words">{val ?? "—"}</div>
                 </div>
               );
               return (
