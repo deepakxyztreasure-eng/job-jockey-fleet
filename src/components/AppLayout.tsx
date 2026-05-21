@@ -14,13 +14,13 @@ export default function AppLayout() {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 border-b bg-card flex items-center justify-between px-4 sticky top-0 z-30">
-            <div className="flex items-center gap-3">
+          <header className="h-14 border-b bg-card flex items-center justify-between px-3 sm:px-4 sticky top-0 z-30">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <SidebarTrigger />
-              <h1 className="font-semibold text-sm text-foreground/80">Operations Console</h1>
+              <h1 className="font-semibold text-sm text-foreground/80 truncate hidden sm:block">Operations Console</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="capitalize">{role?.replace("_"," ")}</Badge>
+              <Badge variant="secondary" className="capitalize text-[10px] sm:text-xs">{role?.replace("_"," ")}</Badge>
               {role === "driver" && (
                 <Button
                   size="sm"
@@ -31,12 +31,12 @@ export default function AppLayout() {
                     }
                   }}
                 >
-                  <LogOut className="h-4 w-4 mr-1" /> Exit
+                  <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Exit</span>
                 </Button>
               )}
             </div>
           </header>
-          <main className="flex-1 p-6 bg-background">
+          <main className="flex-1 p-3 sm:p-6 bg-background">
             <Outlet />
           </main>
           <DriverChecklistDialog />
