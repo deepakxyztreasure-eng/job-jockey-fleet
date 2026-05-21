@@ -621,10 +621,10 @@ export default function Jobs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{isDriver ? "My Jobs" : "Jobs"}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold">{isDriver ? "My Jobs" : "Jobs"}</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             {isDriver
               ? "Accept, work, and submit jobs for admin verification."
               : isMember
