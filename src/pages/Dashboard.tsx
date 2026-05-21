@@ -177,8 +177,25 @@ export default function Dashboard() {
       )}
 
       <div className="rounded-xl border bg-card">
-        <div className="p-5 border-b"><h2 className="font-semibold">Recent jobs</h2></div>
-        <div className="overflow-x-auto">
+        <div className="p-4 sm:p-5 border-b"><h2 className="font-semibold">Recent jobs</h2></div>
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y">
+          {recent.length === 0 && <div className="text-center text-muted-foreground py-8 text-sm">No jobs yet</div>}
+          {recent.map((j) => (
+            <div key={j.id} className="p-3 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-medium text-sm truncate">{j.title}</div>
+                <StatusBadge status={j.status} />
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                <div>Invoice: <span className="font-mono text-foreground">{j.invoice_number || "—"}</span></div>
+                <div>Driver: <span className="text-foreground">{j.drivers?.full_name ?? "—"}</span></div>
+                <div className="col-span-2">{j.scheduled_date ? format(new Date(j.scheduled_date), "MMM d, yyyy") : "—"} · {j.priority === "priority" ? <span className="text-priority font-medium">Priority</span> : "Standard"}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden md:block overflow-x-auto">
           <table className="data-table w-full">
             <thead><tr><th>Title</th><th>Driver</th><th>Invoice</th><th>Date</th><th>Priority</th><th>Status</th></tr></thead>
             <tbody>
