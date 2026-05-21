@@ -114,7 +114,35 @@ export default function Users() {
       </div>
 
       <div className="rounded-xl border bg-card overflow-hidden">
-        <table className="data-table w-full">
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y">
+          {rows.length === 0 && <div className="text-center text-muted-foreground py-8 text-sm">No users</div>}
+          {rows.map((r) => (
+            <div key={r.id} className="p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-medium text-sm truncate">{r.full_name || "—"}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{r.email}</div>
+                  {r.phone && <div className="text-[11px] text-muted-foreground">{r.phone}</div>}
+                </div>
+                <Badge variant="secondary" className="capitalize">{r.role?.replace("_"," ") ?? "none"}</Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={r.role ?? ""} onValueChange={(v)=>setRoleQuick(r.id, v as Role)}>
+                  <SelectTrigger className="h-8 flex-1"><SelectValue placeholder="Set role" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="driver">Driver</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="icon" variant="ghost" onClick={()=>startEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" onClick={()=>remove(r)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <table className="data-table w-full hidden md:table">
           <thead><tr><th>User</th><th>Email</th><th>Phone</th><th>Role</th><th>Quick change</th><th></th></tr></thead>
           <tbody>
             {rows.map((r)=>(

@@ -93,26 +93,26 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">{role === "driver" ? "Your assigned jobs and updates." : "Overview of jobs, drivers and operations."}</p>
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold">Dashboard</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{role === "driver" ? "Your assigned jobs and updates." : "Overview of jobs, drivers and operations."}</p>
         </div>
         {role === "super_admin" && stats.completion_requested > 0 && (
-          <Link to="/jobs?status=completion_requested" className="inline-flex items-center gap-2 rounded-md bg-priority/10 text-priority px-3 py-2 text-sm font-medium">
-            <ShieldAlert className="h-4 w-4" /> {stats.completion_requested} job(s) awaiting verification
+          <Link to="/jobs?status=completion_requested" className="inline-flex items-center gap-2 rounded-md bg-priority/10 text-priority px-3 py-2 text-xs sm:text-sm font-medium">
+            <ShieldAlert className="h-4 w-4" /> {stats.completion_requested} awaiting verification
           </Link>
         )}
       </div>
 
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
         {cards.map((c) => (
-          <div key={c.label} className="stat-card">
+          <div key={c.label} className="stat-card !p-3 sm:!p-5">
             <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">{c.label}</p>
-                <p className={`text-2xl font-semibold mt-2 ${c.color}`}>{c.value}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide truncate">{c.label}</p>
+                <p className={`text-lg sm:text-2xl font-semibold mt-1 sm:mt-2 ${c.color}`}>{c.value}</p>
               </div>
-              <c.icon className={`h-5 w-5 ${c.color}`} />
+              <c.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${c.color} shrink-0`} />
             </div>
           </div>
         ))}
@@ -177,8 +177,25 @@ export default function Dashboard() {
       )}
 
       <div className="rounded-xl border bg-card">
-        <div className="p-5 border-b"><h2 className="font-semibold">Recent jobs</h2></div>
-        <div className="overflow-x-auto">
+        <div className="p-4 sm:p-5 border-b"><h2 className="font-semibold">Recent jobs</h2></div>
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y">
+          {recent.length === 0 && <div className="text-center text-muted-foreground py-8 text-sm">No jobs yet</div>}
+          {recent.map((j) => (
+            <div key={j.id} className="p-3 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-medium text-sm truncate">{j.title}</div>
+                <StatusBadge status={j.status} />
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                <div>Invoice: <span className="font-mono text-foreground">{j.invoice_number || "—"}</span></div>
+                <div>Driver: <span className="text-foreground">{j.drivers?.full_name ?? "—"}</span></div>
+                <div className="col-span-2">{j.scheduled_date ? format(new Date(j.scheduled_date), "MMM d, yyyy") : "—"} · {j.priority === "priority" ? <span className="text-priority font-medium">Priority</span> : "Standard"}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden md:block overflow-x-auto">
           <table className="data-table w-full">
             <thead><tr><th>Title</th><th>Driver</th><th>Invoice</th><th>Date</th><th>Priority</th><th>Status</th></tr></thead>
             <tbody>
