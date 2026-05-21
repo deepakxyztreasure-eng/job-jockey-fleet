@@ -93,18 +93,18 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">{role === "driver" ? "Your assigned jobs and updates." : "Overview of jobs, drivers and operations."}</p>
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold">Dashboard</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{role === "driver" ? "Your assigned jobs and updates." : "Overview of jobs, drivers and operations."}</p>
         </div>
         {role === "super_admin" && stats.completion_requested > 0 && (
-          <Link to="/jobs?status=completion_requested" className="inline-flex items-center gap-2 rounded-md bg-priority/10 text-priority px-3 py-2 text-sm font-medium">
-            <ShieldAlert className="h-4 w-4" /> {stats.completion_requested} job(s) awaiting verification
+          <Link to="/jobs?status=completion_requested" className="inline-flex items-center gap-2 rounded-md bg-priority/10 text-priority px-3 py-2 text-xs sm:text-sm font-medium">
+            <ShieldAlert className="h-4 w-4" /> {stats.completion_requested} awaiting verification
           </Link>
         )}
       </div>
 
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
         {cards.map((c) => (
           <div key={c.label} className="stat-card">
             <div className="flex items-start justify-between">
