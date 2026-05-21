@@ -893,7 +893,7 @@ export default function Jobs() {
                       />
                     </div>
 
-                    <div className="flex items-end gap-4 col-span-2">
+                    <div className="flex items-end gap-4 sm:col-span-2">
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={form.priority === "priority"}
