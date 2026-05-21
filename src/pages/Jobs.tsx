@@ -1080,7 +1080,113 @@ export default function Jobs() {
         </div>
       )}
 
-      <div className="rounded-xl border bg-card overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 && (
+          <div className="rounded-xl border bg-card p-6 text-center text-muted-foreground text-sm">
+            No jobs match filters
+          </div>
+        )}
+        {filtered.map((j) => (
+          <div key={j.id} className="rounded-xl border bg-card p-3 space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {j.priority === "priority" && <Flame className="h-3.5 w-3.5 text-priority shrink-0" />}
+                  <span className="font-medium text-sm">{j.title}</span>
+                  {j.cod && (
+                    <span
+                      className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${j.payment_status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}
+                    >
+                      COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
+                    </span>
+                  )}
+                </div>
+                {j.start_time && (
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {format(new Date(j.start_time), "MMM d, h:mm a")}
+                  </div>
+                )}
+              </div>
+              <StatusBadge status={j.status} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <div className="text-muted-foreground">Customer</div>
+                <div className="font-medium truncate">{j.customer_name || "—"}</div>
+                {j.customer_mobile && <div className="text-muted-foreground">{j.customer_mobile}</div>}
+              </div>
+              <div>
+                <div className="text-muted-foreground">Invoice</div>
+                <div className="font-mono truncate">{j.invoice_number || "—"}</div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-muted-foreground">Pickup → Delivery</div>
+                <div className="truncate">{j.store_locations?.name ?? j.pickup_address ?? "—"} → {j.delivery_address ?? "—"}</div>
+              </div>
+              {!isDriver && (
+                <div className="col-span-2">
+                  <div className="text-muted-foreground">Driver</div>
+                  <div>{j.drivers?.full_name ?? <span className="italic text-muted-foreground">Unassigned</span>}</div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t">
+              {isDriver && (
+                <Button size="sm" variant="outline" onClick={() => setDetailFor(j)}>
+                  <Eye className="h-3.5 w-3.5 mr-1" /> Details
+                </Button>
+              )}
+              {isDriver && (j.status === "assigned" || j.status === "pending") && (
+                <>
+                  <Button size="sm" onClick={() => driverAccept(j)}>Accept</Button>
+                  <Button size="sm" variant="ghost" onClick={() => driverReject(j)}>Reject</Button>
+                </>
+              )}
+              {isDriver && j.status === "accepted" && (
+                <Button size="sm" onClick={() => driverStart(j)}>Start job</Button>
+              )}
+              {isDriver && j.status === "in_progress" && (
+                <Button size="sm" onClick={() => { setCompleteFor(j); setCompNotes(""); setCompFile(null); }}>
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete
+                </Button>
+              )}
+              {isMember && j.created_by === user?.id && (
+                <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" />{j.pending_edit ? "Pending…" : "Edit"}
+                </Button>
+              )}
+              {isAdmin && (
+                <>
+                  {j.status === "completion_requested" && (
+                    <Button size="sm" variant="outline" onClick={() => { setVerifyFor(j); setRejectReason(""); }}>
+                      <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Verify
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => openAssign(j)}>
+                    <UserPlus className="h-3.5 w-3.5 mr-1" /> {j.assigned_driver_id ? "Reassign" : "Assign"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  {j.pending_edit && (
+                    <Button size="sm" variant="outline" onClick={() => setReviewEditFor(j)}>
+                      <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Review edit
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => remove(j.id)}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden md:block rounded-xl border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="data-table w-full">
             <thead>
