@@ -665,9 +665,15 @@ export default function Jobs() {
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{editing ? "Edit" : "New"} job</DialogTitle>
+                  <DialogTitle>
+                    {editing ? "Edit" : "New"} job
+                    {editing?.job_number != null && (
+                      <span className="ml-2 text-xs font-mono text-muted-foreground">#{String(editing.job_number).padStart(4, "0")}</span>
+                    )}
+                  </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="sm:col-span-2">
                       <Label>Job title *</Label>
