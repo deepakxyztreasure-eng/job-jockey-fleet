@@ -259,8 +259,10 @@ export default function Jobs() {
       quantity: j.quantity ?? "",
       quantity_unit: unitInList ? j.quantity_unit : j.quantity_unit ? "__other__" : "",
       quantity_unit_other: unitInList ? "" : (j.quantity_unit ?? ""),
+      number_of_loads: j.number_of_loads ?? "",
       instructions: j.instructions ?? "",
     });
+
     setOpen(true);
   };
 
