@@ -1295,6 +1295,11 @@ export default function Jobs() {
                   )}
                   <td>
                     <div className="flex items-center gap-2">
+                      {j.job_number != null && (
+                        <span className="text-[10px] font-mono rounded bg-muted px-1.5 py-0.5">
+                          #{String(j.job_number).padStart(4, "0")}
+                        </span>
+                      )}
                       {j.priority === "priority" && <Flame className="h-4 w-4 text-priority" />}
                       <span className="font-medium">{j.title}</span>
                       {j.cod && (
@@ -1304,6 +1309,7 @@ export default function Jobs() {
                           COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
                         </span>
                       )}
+
                       {!j.cod && j.show_price && j.price != null && (
                         <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
                           ${Number(j.price).toFixed(2)}
