@@ -98,8 +98,10 @@ const blank = {
   quantity: "",
   quantity_unit: "",
   quantity_unit_other: "",
+  number_of_loads: "",
   instructions: "",
 };
+
 
 export default function Jobs() {
   const { role, user } = useAuth();
