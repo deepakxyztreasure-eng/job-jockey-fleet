@@ -1382,12 +1382,11 @@ export default function Jobs() {
                     <StatusBadge status={j.status} />
                   </td>
                   <td className="text-right whitespace-nowrap">
-                    {isDriver && (
-                      <Button size="sm" variant="ghost" onClick={() => setDetailFor(j)} className="mr-1">
-                        <Eye className="h-4 w-4 mr-1" />
-                        Details
-                      </Button>
-                    )}
+                    <Button size="sm" variant="ghost" onClick={() => setDetailFor(j)} className="mr-1">
+                      <Eye className="h-4 w-4 mr-1" />
+                      Details
+                    </Button>
+
                     {isDriver && (j.status === "assigned" || j.status === "pending") && (
                       <div className="inline-flex gap-1 justify-end">
                         <Button size="sm" variant="outline" onClick={() => driverAccept(j)}>
