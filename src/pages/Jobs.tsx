@@ -308,8 +308,10 @@ export default function Jobs() {
       customer_mobile: form.customer_mobile || null,
       quantity: form.quantity ? Number(form.quantity) : null,
       quantity_unit: form.quantity ? finalUnit : null,
+      number_of_loads: form.number_of_loads ? Number(form.number_of_loads) : null,
       instructions: form.instructions || null,
     };
+
 
     if (editing) {
       if (isMember && editing.created_by !== user?.id) {
