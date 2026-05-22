@@ -199,6 +199,8 @@ export type Database = {
           id: string
           instructions: string | null
           invoice_number: string
+          job_number: number | null
+          number_of_loads: number | null
           payment_status: Database["public"]["Enums"]["payment_status"]
           pending_edit: Json | null
           pending_edit_at: string | null
@@ -238,6 +240,8 @@ export type Database = {
           id?: string
           instructions?: string | null
           invoice_number: string
+          job_number?: number | null
+          number_of_loads?: number | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           pending_edit?: Json | null
           pending_edit_at?: string | null
@@ -277,6 +281,8 @@ export type Database = {
           id?: string
           instructions?: string | null
           invoice_number?: string
+          job_number?: number | null
+          number_of_loads?: number | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           pending_edit?: Json | null
           pending_edit_at?: string | null
