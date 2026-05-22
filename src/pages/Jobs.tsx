@@ -1690,6 +1690,7 @@ export default function Jobs() {
               );
               return (
                 <div className="text-sm">
+                  {row("Job #", j.job_number != null ? `#${String(j.job_number).padStart(4, "0")}` : "—")}
                   {row("Job title", j.title)}
                   {row(
                     "Pickup location",
@@ -1713,16 +1714,21 @@ export default function Jobs() {
                       : "Invoice",
                   )}
                   {row("Invoice number", j.invoice_number || "—")}
+                  {!j.cod && j.price != null && row("Price (ex GST)", `$${Number(j.price).toFixed(2)}`)}
+                  {!j.cod && j.price != null && row("GST (10%)", `$${(Number(j.price) * 0.1).toFixed(2)}`)}
+                  {!j.cod && j.price != null && row("Total (inc GST)", `$${(Number(j.price) * 1.1).toFixed(2)}`)}
                   {row("COD", j.cod ? "Yes" : "No")}
                   {row("Customer name", j.customer_name)}
                   {row("Mobile number", j.customer_mobile)}
                   {row("Unit", j.quantity_unit)}
                   {row("Quantity", j.quantity)}
+                  {row("Number of loads", j.number_of_loads)}
                   {row("Instructions / notes", j.instructions)}
                   {row("Product description", j.description)}
                 </div>
               );
             })()}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailFor(null)}>
               Close
