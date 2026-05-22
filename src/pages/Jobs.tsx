@@ -1179,14 +1179,35 @@ export default function Jobs() {
                   <div>{j.drivers?.full_name ?? <span className="italic text-muted-foreground">Unassigned</span>}</div>
                 </div>
               )}
+              {j.number_of_loads != null && (
+                <div>
+                  <div className="text-muted-foreground">Loads</div>
+                  <div>{j.number_of_loads}</div>
+                </div>
+              )}
+              <div>
+                <div className="text-muted-foreground">Payment</div>
+                {isAdmin ? (
+                  <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
+                    <SelectTrigger className="h-7 text-[11px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_STATUSES.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <PaymentBadge status={j.payment_status} />
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t">
-              {isDriver && (
-                <Button size="sm" variant="outline" onClick={() => setDetailFor(j)}>
-                  <Eye className="h-3.5 w-3.5 mr-1" /> Details
-                </Button>
-              )}
+              <Button size="sm" variant="outline" onClick={() => setDetailFor(j)}>
+                <Eye className="h-3.5 w-3.5 mr-1" /> Details
+              </Button>
               {isDriver && (j.status === "assigned" || j.status === "pending") && (
                 <>
                   <Button size="sm" onClick={() => driverAccept(j)}>Accept</Button>
@@ -1233,6 +1254,7 @@ export default function Jobs() {
           </div>
         ))}
       </div>
+
 
       <div className="hidden md:block rounded-xl border bg-card overflow-hidden">
         <div className="overflow-x-auto">
