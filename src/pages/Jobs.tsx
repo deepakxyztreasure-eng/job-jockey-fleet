@@ -98,8 +98,10 @@ const blank = {
   quantity: "",
   quantity_unit: "",
   quantity_unit_other: "",
+  number_of_loads: "",
   instructions: "",
 };
+
 
 export default function Jobs() {
   const { role, user } = useAuth();
@@ -257,8 +259,10 @@ export default function Jobs() {
       quantity: j.quantity ?? "",
       quantity_unit: unitInList ? j.quantity_unit : j.quantity_unit ? "__other__" : "",
       quantity_unit_other: unitInList ? "" : (j.quantity_unit ?? ""),
+      number_of_loads: j.number_of_loads ?? "",
       instructions: j.instructions ?? "",
     });
+
     setOpen(true);
   };
 
@@ -304,8 +308,10 @@ export default function Jobs() {
       customer_mobile: form.customer_mobile || null,
       quantity: form.quantity ? Number(form.quantity) : null,
       quantity_unit: form.quantity ? finalUnit : null,
+      number_of_loads: form.number_of_loads ? Number(form.number_of_loads) : null,
       instructions: form.instructions || null,
     };
+
 
     if (editing) {
       if (isMember && editing.created_by !== user?.id) {
@@ -659,9 +665,15 @@ export default function Jobs() {
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{editing ? "Edit" : "New"} job</DialogTitle>
+                  <DialogTitle>
+                    {editing ? "Edit" : "New"} job
+                    {editing?.job_number != null && (
+                      <span className="ml-2 text-xs font-mono text-muted-foreground">#{String(editing.job_number).padStart(4, "0")}</span>
+                    )}
+                  </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="sm:col-span-2">
                       <Label>Job title *</Label>
@@ -863,17 +875,47 @@ export default function Jobs() {
                         </div>
                       </div>
                     </div>
+                    <div>
+                      <Label>Number of loads</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={form.number_of_loads}
+                        onChange={(e) => setForm({ ...form, number_of_loads: e.target.value })}
+                        placeholder="e.g. 3"
+                      />
+                    </div>
                     {form.payment_kind === "invoice" && (
-                      <div>
-                        <Label>Price</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={form.price}
-                          onChange={(e) => setForm({ ...form, price: e.target.value })}
-                        />
+                      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-md border bg-muted/30 p-3">
+                        <div>
+                          <Label>Price (ex GST)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={form.price}
+                            onChange={(e) => setForm({ ...form, price: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>GST (10%)</Label>
+                          <Input
+                            readOnly
+                            value={form.price ? (Number(form.price) * 0.1).toFixed(2) : ""}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <Label>Total (inc GST)</Label>
+                          <Input
+                            readOnly
+                            className="font-semibold"
+                            value={form.price ? (Number(form.price) * 1.1).toFixed(2) : ""}
+                            placeholder="0.00"
+                          />
+                        </div>
                       </div>
                     )}
+
 
                     <div className="sm:col-span-2">
                       <Label>Instructions / notes</Label>
@@ -1092,6 +1134,11 @@ export default function Jobs() {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
+                  {j.job_number != null && (
+                    <span className="text-[10px] font-mono rounded bg-muted px-1.5 py-0.5">
+                      #{String(j.job_number).padStart(4, "0")}
+                    </span>
+                  )}
                   {j.priority === "priority" && <Flame className="h-3.5 w-3.5 text-priority shrink-0" />}
                   <span className="font-medium text-sm">{j.title}</span>
                   {j.cod && (
@@ -1110,6 +1157,7 @@ export default function Jobs() {
               </div>
               <StatusBadge status={j.status} />
             </div>
+
 
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div>
@@ -1131,14 +1179,35 @@ export default function Jobs() {
                   <div>{j.drivers?.full_name ?? <span className="italic text-muted-foreground">Unassigned</span>}</div>
                 </div>
               )}
+              {j.number_of_loads != null && (
+                <div>
+                  <div className="text-muted-foreground">Loads</div>
+                  <div>{j.number_of_loads}</div>
+                </div>
+              )}
+              <div>
+                <div className="text-muted-foreground">Payment</div>
+                {isAdmin ? (
+                  <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
+                    <SelectTrigger className="h-7 text-[11px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_STATUSES.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <PaymentBadge status={j.payment_status} />
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t">
-              {isDriver && (
-                <Button size="sm" variant="outline" onClick={() => setDetailFor(j)}>
-                  <Eye className="h-3.5 w-3.5 mr-1" /> Details
-                </Button>
-              )}
+              <Button size="sm" variant="outline" onClick={() => setDetailFor(j)}>
+                <Eye className="h-3.5 w-3.5 mr-1" /> Details
+              </Button>
               {isDriver && (j.status === "assigned" || j.status === "pending") && (
                 <>
                   <Button size="sm" onClick={() => driverAccept(j)}>Accept</Button>
@@ -1186,6 +1255,7 @@ export default function Jobs() {
         ))}
       </div>
 
+
       <div className="hidden md:block rounded-xl border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="data-table w-full">
@@ -1225,6 +1295,11 @@ export default function Jobs() {
                   )}
                   <td>
                     <div className="flex items-center gap-2">
+                      {j.job_number != null && (
+                        <span className="text-[10px] font-mono rounded bg-muted px-1.5 py-0.5">
+                          #{String(j.job_number).padStart(4, "0")}
+                        </span>
+                      )}
                       {j.priority === "priority" && <Flame className="h-4 w-4 text-priority" />}
                       <span className="font-medium">{j.title}</span>
                       {j.cod && (
@@ -1234,6 +1309,7 @@ export default function Jobs() {
                           COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
                         </span>
                       )}
+
                       {!j.cod && j.show_price && j.price != null && (
                         <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
                           ${Number(j.price).toFixed(2)}
@@ -1306,12 +1382,11 @@ export default function Jobs() {
                     <StatusBadge status={j.status} />
                   </td>
                   <td className="text-right whitespace-nowrap">
-                    {isDriver && (
-                      <Button size="sm" variant="ghost" onClick={() => setDetailFor(j)} className="mr-1">
-                        <Eye className="h-4 w-4 mr-1" />
-                        Details
-                      </Button>
-                    )}
+                    <Button size="sm" variant="ghost" onClick={() => setDetailFor(j)} className="mr-1">
+                      <Eye className="h-4 w-4 mr-1" />
+                      Details
+                    </Button>
+
                     {isDriver && (j.status === "assigned" || j.status === "pending") && (
                       <div className="inline-flex gap-1 justify-end">
                         <Button size="sm" variant="outline" onClick={() => driverAccept(j)}>
@@ -1615,6 +1690,7 @@ export default function Jobs() {
               );
               return (
                 <div className="text-sm">
+                  {row("Job #", j.job_number != null ? `#${String(j.job_number).padStart(4, "0")}` : "—")}
                   {row("Job title", j.title)}
                   {row(
                     "Pickup location",
@@ -1638,16 +1714,21 @@ export default function Jobs() {
                       : "Invoice",
                   )}
                   {row("Invoice number", j.invoice_number || "—")}
+                  {!j.cod && j.price != null && row("Price (ex GST)", `$${Number(j.price).toFixed(2)}`)}
+                  {!j.cod && j.price != null && row("GST (10%)", `$${(Number(j.price) * 0.1).toFixed(2)}`)}
+                  {!j.cod && j.price != null && row("Total (inc GST)", `$${(Number(j.price) * 1.1).toFixed(2)}`)}
                   {row("COD", j.cod ? "Yes" : "No")}
                   {row("Customer name", j.customer_name)}
                   {row("Mobile number", j.customer_mobile)}
                   {row("Unit", j.quantity_unit)}
                   {row("Quantity", j.quantity)}
+                  {row("Number of loads", j.number_of_loads)}
                   {row("Instructions / notes", j.instructions)}
                   {row("Product description", j.description)}
                 </div>
               );
             })()}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailFor(null)}>
               Close
