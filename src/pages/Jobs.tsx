@@ -52,6 +52,7 @@ const ALL_STATUSES = [
   "payment_pending",
   "closed",
 ] as const;
+const HISTORY_STATUSES = ["completed", "closed", "rejected"] as const;
 const PAYMENT_STATUSES = ["pending", "partial", "paid"] as const;
 type DateRange = "all" | "today" | "week" | "month" | "custom";
 
