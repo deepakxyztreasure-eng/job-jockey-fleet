@@ -1286,6 +1286,9 @@ export default function Jobs() {
                   <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
+                  <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
                   {j.pending_edit && (
                     <Button size="sm" variant="outline" onClick={() => setReviewEditFor(j)}>
                       <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Review edit
