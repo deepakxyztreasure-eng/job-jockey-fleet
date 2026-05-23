@@ -1273,6 +1273,11 @@ export default function Jobs() {
                   <Pencil className="h-3.5 w-3.5 mr-1" />{j.pending_edit ? "Pending…" : "Edit"}
                 </Button>
               )}
+              {isMember && (
+                <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
+                  <Copy className="h-3.5 w-3.5 mr-1" /> Duplicate
+                </Button>
+              )}
               {isAdmin && (
                 <>
                   {j.status === "completion_requested" && (
