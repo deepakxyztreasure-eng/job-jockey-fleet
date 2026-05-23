@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   UserPlus,
   Eye,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
