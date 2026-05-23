@@ -17,6 +17,7 @@ export function AppSidebar() {
   const adminItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Jobs", url: "/jobs", icon: Briefcase },
+    { title: "History", url: "/history", icon: History },
     { title: "Drivers", url: "/drivers", icon: Users },
     { title: "Store Locations", url: "/locations", icon: MapPin },
     { title: "Job Titles", url: "/job-titles", icon: Tag },
@@ -28,11 +29,13 @@ export function AppSidebar() {
   const memberItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Jobs", url: "/jobs", icon: Briefcase },
+    { title: "History", url: "/history", icon: History },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
   const driverItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "My Jobs", url: "/jobs", icon: Briefcase },
+    { title: "History", url: "/history", icon: History },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
 
