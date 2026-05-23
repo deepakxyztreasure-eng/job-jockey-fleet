@@ -230,7 +230,7 @@ export default function Jobs() {
       if (isAdmin && fPendingEdit && !j.pending_edit) return false;
       return true;
     });
-  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin, fPendingEdit]);
+  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin, fPendingEdit, historyMode]);
 
   const startCreate = () => {
     setEditing(null);
