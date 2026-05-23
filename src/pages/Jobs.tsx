@@ -1519,6 +1519,10 @@ export default function Jobs() {
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => duplicate(j)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </DropdownMenuItem>
                           {j.proof_image_url && (
                             <DropdownMenuItem onClick={() => viewProof(j.proof_image_url)}>
                               <ImageIcon className="h-4 w-4 mr-2" />
