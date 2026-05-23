@@ -1,0 +1,1 @@
+CREATE POLICY "jobs_select_member_all" ON public.jobs FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'member'::app_role));

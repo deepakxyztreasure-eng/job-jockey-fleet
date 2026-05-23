@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ import {
   ShieldCheck,
   UserPlus,
   Eye,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,6 +52,7 @@ const ALL_STATUSES = [
   "payment_pending",
   "closed",
 ] as const;
+const HISTORY_STATUSES = ["completed", "closed", "rejected"] as const;
 const PAYMENT_STATUSES = ["pending", "partial", "paid"] as const;
 type DateRange = "all" | "today" | "week" | "month" | "custom";
 
@@ -105,6 +108,8 @@ const blank = {
 
 export default function Jobs() {
   const { role, user } = useAuth();
+  const { pathname } = useLocation();
+  const historyMode = pathname.startsWith("/history");
   const isAdmin = role === "super_admin";
   const isMember = role === "member";
   const isDriver = role === "driver";
@@ -202,6 +207,8 @@ export default function Jobs() {
     }
     const q = search.trim().toLowerCase();
     return jobs.filter((j) => {
+      const inHistory = (HISTORY_STATUSES as readonly string[]).includes(j.status);
+      if (historyMode ? !inHistory : inHistory) return false;
       if (q) {
         const hay =
           `${j.title ?? ""} ${j.invoice_number ?? ""} ${j.customer_name ?? ""} ${j.customer_mobile ?? ""}`.toLowerCase();
@@ -223,7 +230,7 @@ export default function Jobs() {
       if (isAdmin && fPendingEdit && !j.pending_edit) return false;
       return true;
     });
-  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin, fPendingEdit]);
+  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin, fPendingEdit, historyMode]);
 
   const startCreate = () => {
     setEditing(null);
@@ -414,7 +421,42 @@ export default function Jobs() {
     load();
   };
 
-  // Admin assign-driver
+  const duplicate = (j: any) => {
+    setEditing(null);
+    const isOtherPickup = !j.pickup_location_id && !!j.pickup_address;
+    const rawTitle = j.title ?? "";
+    const sepIdx = rawTitle.indexOf(" - ");
+    const titlePrefix = sepIdx > -1 ? rawTitle.slice(0, sepIdx) : rawTitle;
+    const titleSuffix = sepIdx > -1 ? rawTitle.slice(sepIdx + 3) : "";
+    const prefixInList = titleNames.includes(titlePrefix);
+    const unitInList = j.quantity_unit && (QUANTITY_UNITS as readonly string[]).includes(j.quantity_unit);
+    setForm({
+      title_select: prefixInList ? titlePrefix : rawTitle ? "__other__" : "",
+      title_other: prefixInList ? titleSuffix : rawTitle,
+      description: j.description ?? "",
+      pickup_location_id: isOtherPickup ? "__other__" : (j.pickup_location_id ?? ""),
+      pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
+      delivery_address: j.delivery_address ?? "",
+      scheduled_date: "",
+      start_time: "",
+      priority: j.priority,
+      payment_kind: j.cod ? "cod" : "invoice",
+      invoice_number: j.cod ? "" : "",
+      price: j.cod ? "" : (j.price ?? ""),
+      show_price: j.show_price,
+      cod_amount: j.cod ? (j.price ?? "") : "",
+      customer_name: j.customer_name ?? "",
+      customer_mobile: j.customer_mobile ?? "",
+      quantity: j.quantity ?? "",
+      quantity_unit: unitInList ? j.quantity_unit : j.quantity_unit ? "__other__" : "",
+      quantity_unit_other: unitInList ? "" : (j.quantity_unit ?? ""),
+      number_of_loads: j.number_of_loads ?? "",
+      instructions: j.instructions ?? "",
+    });
+    setOpen(true);
+    toast.info("Duplicated — set a new start time and save");
+  };
+
   const openAssign = (j: any) => {
     setAssignFor(j);
     setAssignDriver(j.assigned_driver_id ?? "");
@@ -629,13 +671,17 @@ export default function Jobs() {
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold">{isDriver ? "My Jobs" : "Jobs"}</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold">
+            {historyMode ? "Job History" : isDriver ? "My Jobs" : "Jobs"}
+          </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            {isDriver
-              ? "Accept, work, and submit jobs for admin verification."
-              : isMember
-                ? "Create new jobs — admin will assign a driver."
-                : "Create, assign, verify, and track jobs."}
+            {historyMode
+              ? "Completed, closed, and rejected jobs."
+              : isDriver
+                ? "Accept, work, and submit jobs for admin verification."
+                : isMember
+                  ? "Create new jobs — admin will assign a driver."
+                  : "Create, assign, verify, and track jobs."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -655,7 +701,7 @@ export default function Jobs() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {!isDriver && (
+          {!isDriver && !historyMode && (
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button onClick={startCreate}>
@@ -1227,6 +1273,11 @@ export default function Jobs() {
                   <Pencil className="h-3.5 w-3.5 mr-1" />{j.pending_edit ? "Pending…" : "Edit"}
                 </Button>
               )}
+              {isMember && (
+                <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
+                  <Copy className="h-3.5 w-3.5 mr-1" /> Duplicate
+                </Button>
+              )}
               {isAdmin && (
                 <>
                   {j.status === "completion_requested" && (
@@ -1239,6 +1290,9 @@ export default function Jobs() {
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
                     <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
+                    <Copy className="h-3.5 w-3.5" />
                   </Button>
                   {j.pending_edit && (
                     <Button size="sm" variant="outline" onClick={() => setReviewEditFor(j)}>
@@ -1448,6 +1502,12 @@ export default function Jobs() {
                         {j.pending_edit ? "Pending…" : "Edit"}
                       </Button>
                     )}
+                    {isMember && (
+                      <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
+                        <Copy className="h-4 w-4 mr-1" />
+                        Duplicate
+                      </Button>
+                    )}
                     {isAdmin && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1472,6 +1532,10 @@ export default function Jobs() {
                           <DropdownMenuItem onClick={() => startEdit(j)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => duplicate(j)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
                           </DropdownMenuItem>
                           {j.proof_image_url && (
                             <DropdownMenuItem onClick={() => viewProof(j.proof_image_url)}>
