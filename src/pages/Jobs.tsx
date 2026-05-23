@@ -1502,6 +1502,12 @@ export default function Jobs() {
                         {j.pending_edit ? "Pending…" : "Edit"}
                       </Button>
                     )}
+                    {isMember && (
+                      <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
+                        <Copy className="h-4 w-4 mr-1" />
+                        Duplicate
+                      </Button>
+                    )}
                     {isAdmin && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
