@@ -108,6 +108,8 @@ const blank = {
 
 export default function Jobs() {
   const { role, user } = useAuth();
+  const { pathname } = useLocation();
+  const historyMode = pathname.startsWith("/history");
   const isAdmin = role === "super_admin";
   const isMember = role === "member";
   const isDriver = role === "driver";
