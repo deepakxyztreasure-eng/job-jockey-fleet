@@ -671,13 +671,17 @@ export default function Jobs() {
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold">{isDriver ? "My Jobs" : "Jobs"}</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold">
+            {historyMode ? "Job History" : isDriver ? "My Jobs" : "Jobs"}
+          </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            {isDriver
-              ? "Accept, work, and submit jobs for admin verification."
-              : isMember
-                ? "Create new jobs — admin will assign a driver."
-                : "Create, assign, verify, and track jobs."}
+            {historyMode
+              ? "Completed, closed, and rejected jobs."
+              : isDriver
+                ? "Accept, work, and submit jobs for admin verification."
+                : isMember
+                  ? "Create new jobs — admin will assign a driver."
+                  : "Create, assign, verify, and track jobs."}
           </p>
         </div>
         <div className="flex items-center gap-2">
