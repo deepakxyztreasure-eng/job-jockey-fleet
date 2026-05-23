@@ -701,7 +701,7 @@ export default function Jobs() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {!isDriver && (
+          {!isDriver && !historyMode && (
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button onClick={startCreate}>
