@@ -421,7 +421,42 @@ export default function Jobs() {
     load();
   };
 
-  // Admin assign-driver
+  const duplicate = (j: any) => {
+    setEditing(null);
+    const isOtherPickup = !j.pickup_location_id && !!j.pickup_address;
+    const rawTitle = j.title ?? "";
+    const sepIdx = rawTitle.indexOf(" - ");
+    const titlePrefix = sepIdx > -1 ? rawTitle.slice(0, sepIdx) : rawTitle;
+    const titleSuffix = sepIdx > -1 ? rawTitle.slice(sepIdx + 3) : "";
+    const prefixInList = titleNames.includes(titlePrefix);
+    const unitInList = j.quantity_unit && (QUANTITY_UNITS as readonly string[]).includes(j.quantity_unit);
+    setForm({
+      title_select: prefixInList ? titlePrefix : rawTitle ? "__other__" : "",
+      title_other: prefixInList ? titleSuffix : rawTitle,
+      description: j.description ?? "",
+      pickup_location_id: isOtherPickup ? "__other__" : (j.pickup_location_id ?? ""),
+      pickup_other: isOtherPickup ? (j.pickup_address ?? "") : "",
+      delivery_address: j.delivery_address ?? "",
+      scheduled_date: "",
+      start_time: "",
+      priority: j.priority,
+      payment_kind: j.cod ? "cod" : "invoice",
+      invoice_number: j.cod ? "" : "",
+      price: j.cod ? "" : (j.price ?? ""),
+      show_price: j.show_price,
+      cod_amount: j.cod ? (j.price ?? "") : "",
+      customer_name: j.customer_name ?? "",
+      customer_mobile: j.customer_mobile ?? "",
+      quantity: j.quantity ?? "",
+      quantity_unit: unitInList ? j.quantity_unit : j.quantity_unit ? "__other__" : "",
+      quantity_unit_other: unitInList ? "" : (j.quantity_unit ?? ""),
+      number_of_loads: j.number_of_loads ?? "",
+      instructions: j.instructions ?? "",
+    });
+    setOpen(true);
+    toast.info("Duplicated — set a new start time and save");
+  };
+
   const openAssign = (j: any) => {
     setAssignFor(j);
     setAssignDriver(j.assigned_driver_id ?? "");
