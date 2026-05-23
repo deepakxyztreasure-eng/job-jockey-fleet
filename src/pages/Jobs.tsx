@@ -207,6 +207,8 @@ export default function Jobs() {
     }
     const q = search.trim().toLowerCase();
     return jobs.filter((j) => {
+      const inHistory = (HISTORY_STATUSES as readonly string[]).includes(j.status);
+      if (historyMode ? !inHistory : inHistory) return false;
       if (q) {
         const hay =
           `${j.title ?? ""} ${j.invoice_number ?? ""} ${j.customer_name ?? ""} ${j.customer_mobile ?? ""}`.toLowerCase();
