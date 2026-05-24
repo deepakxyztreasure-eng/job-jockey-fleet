@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
-type Role = "super_admin" | "member" | "driver";
+type Role = "super_admin" | "dispatch_admin" | "member" | "driver";
 interface Row { id: string; full_name: string|null; email: string|null; phone: string|null; role: Role | null }
 
 const blank = { id: "", full_name: "", email: "", phone: "", password: "", role: "member" as Role };
