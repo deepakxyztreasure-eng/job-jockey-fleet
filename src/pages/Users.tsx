@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
-type Role = "super_admin" | "member" | "driver";
+type Role = "super_admin" | "dispatch_admin" | "member" | "driver";
 interface Row { id: string; full_name: string|null; email: string|null; phone: string|null; role: Role | null }
 
 const blank = { id: "", full_name: "", email: "", phone: "", password: "", role: "member" as Role };
@@ -27,7 +27,7 @@ export default function Users() {
     const roleMap = new Map<string, Role>();
     (roles ?? []).forEach((r: any) => {
       const cur = roleMap.get(r.user_id);
-      const rank: Record<Role, number> = { super_admin: 1, member: 2, driver: 3 };
+      const rank: Record<Role, number> = { super_admin: 1, dispatch_admin: 2, member: 3, driver: 4 };
       if (!cur || rank[r.role as Role] < rank[cur]) roleMap.set(r.user_id, r.role);
     });
     setRows((profiles ?? []).map((p: any) => ({ ...p, role: roleMap.get(p.id) ?? null })));
@@ -99,6 +99,7 @@ export default function Users() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="dispatch_admin">Dispatch Admin</SelectItem>
                     <SelectItem value="member">Member (Staff)</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
@@ -132,6 +133,7 @@ export default function Users() {
                   <SelectTrigger className="h-8 flex-1"><SelectValue placeholder="Set role" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="dispatch_admin">Dispatch Admin</SelectItem>
                     <SelectItem value="member">Member</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
@@ -156,6 +158,7 @@ export default function Users() {
                     <SelectTrigger className="h-8 w-[160px]"><SelectValue placeholder="Set role" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="dispatch_admin">Dispatch Admin</SelectItem>
                       <SelectItem value="member">Member</SelectItem>
                       <SelectItem value="driver">Driver</SelectItem>
                     </SelectContent>

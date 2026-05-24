@@ -111,6 +111,8 @@ export default function Jobs() {
   const { pathname } = useLocation();
   const historyMode = pathname.startsWith("/history");
   const isAdmin = role === "super_admin";
+  const isDispatch = role === "dispatch_admin";
+  const isAssigner = isAdmin || isDispatch; // can assign/unassign drivers
   const isMember = role === "member";
   const isDriver = role === "driver";
 
@@ -324,8 +326,8 @@ export default function Jobs() {
       if (isMember && editing.created_by !== user?.id) {
         return toast.error("You cannot edit this job");
       }
-      // Members: route edits through approval queue
-      if (isMember) {
+      // Members & Dispatch Admins: route content edits through approval queue
+      if (isMember || isDispatch) {
         const { error } = await supabase
           .from("jobs")
           .update({
@@ -488,6 +490,27 @@ export default function Jobs() {
     }
     toast.success("Driver assigned");
     setAssignFor(null);
+  };
+
+  const unassignJob = async (j: any) => {
+    if (!j.assigned_driver_id) return;
+    if (!confirm(`Unassign ${j.drivers?.full_name ?? "driver"} from this job? It will be put on hold.`)) return;
+    const { error } = await supabase
+      .from("jobs")
+      .update({ assigned_driver_id: null, status: "pending" as any, start_time: j.start_time, end_time: null })
+      .eq("id", j.id);
+    if (error) return toast.error(error.message);
+    const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", j.assigned_driver_id).maybeSingle();
+    if (drv?.user_id) {
+      await supabase.from("notifications").insert({
+        user_id: drv.user_id,
+        title: "Job unassigned",
+        body: `${j.title} (Invoice ${j.invoice_number}) has been put on hold`,
+        type: "job_unassigned",
+        job_id: j.id,
+      });
+    }
+    toast.success("Job unassigned (on hold)");
   };
 
   // Driver actions
@@ -1194,6 +1217,11 @@ export default function Jobs() {
                       COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
                     </span>
                   )}
+                  {!j.cod && (j.show_price || isDriver) && j.price != null && (
+                    <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
+                      ${Number(j.price).toFixed(2)}
+                    </span>
+                  )}
                 </div>
                 {j.start_time && (
                   <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -1268,15 +1296,27 @@ export default function Jobs() {
                   <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete
                 </Button>
               )}
-              {isMember && j.created_by === user?.id && (
+              {(isMember && j.created_by === user?.id) || isDispatch ? (
                 <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
                   <Pencil className="h-3.5 w-3.5 mr-1" />{j.pending_edit ? "Pending…" : "Edit"}
                 </Button>
-              )}
-              {isMember && (
+              ) : null}
+              {(isMember || isDispatch) && (
                 <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
                   <Copy className="h-3.5 w-3.5 mr-1" /> Duplicate
                 </Button>
+              )}
+              {isAssigner && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => openAssign(j)}>
+                    <UserPlus className="h-3.5 w-3.5 mr-1" /> {j.assigned_driver_id ? "Reassign" : "Assign"}
+                  </Button>
+                  {j.assigned_driver_id && (
+                    <Button size="sm" variant="ghost" onClick={() => unassignJob(j)} title="Unassign (hold)">
+                      Hold
+                    </Button>
+                  )}
+                </>
               )}
               {isAdmin && (
                 <>
@@ -1285,9 +1325,6 @@ export default function Jobs() {
                       <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Verify
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => openAssign(j)}>
-                    <UserPlus className="h-3.5 w-3.5 mr-1" /> {j.assigned_driver_id ? "Reassign" : "Assign"}
-                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -1364,7 +1401,7 @@ export default function Jobs() {
                         </span>
                       )}
 
-                      {!j.cod && j.show_price && j.price != null && (
+                      {!j.cod && (j.show_price || isDriver) && j.price != null && (
                         <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
                           ${Number(j.price).toFixed(2)}
                         </span>
@@ -1491,7 +1528,7 @@ export default function Jobs() {
                         Verify
                       </Button>
                     )}
-                    {isMember && j.created_by === user?.id && (
+                    {((isMember && j.created_by === user?.id) || isDispatch) && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -1502,11 +1539,24 @@ export default function Jobs() {
                         {j.pending_edit ? "Pending…" : "Edit"}
                       </Button>
                     )}
-                    {isMember && (
+                    {(isMember || isDispatch) && (
                       <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
                         <Copy className="h-4 w-4 mr-1" />
                         Duplicate
                       </Button>
+                    )}
+                    {isDispatch && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => openAssign(j)} className="ml-1">
+                          <UserPlus className="h-4 w-4 mr-1" />
+                          {j.assigned_driver_id ? "Reassign" : "Assign"}
+                        </Button>
+                        {j.assigned_driver_id && (
+                          <Button size="sm" variant="ghost" onClick={() => unassignJob(j)} title="Unassign (hold)">
+                            Hold
+                          </Button>
+                        )}
+                      </>
                     )}
                     {isAdmin && (
                       <DropdownMenu>
@@ -1529,6 +1579,12 @@ export default function Jobs() {
                             <UserPlus className="h-4 w-4 mr-2" />
                             {j.assigned_driver_id ? "Reassign driver" : "Assign driver"}
                           </DropdownMenuItem>
+                          {j.assigned_driver_id && (
+                            <DropdownMenuItem onClick={() => unassignJob(j)}>
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Unassign (hold)
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => startEdit(j)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit

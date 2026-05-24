@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = "super_admin" | "member" | "driver";
+type AppRole = "super_admin" | "dispatch_admin" | "member" | "driver";
 
 interface AuthCtx {
   session: Session | null;
@@ -86,11 +86,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const roles = (data ?? []).map((r) => r.role as AppRole);
     const r: AppRole | null = roles.includes("super_admin")
       ? "super_admin"
-      : roles.includes("member")
-        ? "member"
-        : roles.includes("driver")
-          ? "driver"
-          : null;
+      : roles.includes("dispatch_admin")
+        ? "dispatch_admin"
+        : roles.includes("member")
+          ? "member"
+          : roles.includes("driver")
+            ? "driver"
+            : null;
     setRole(r);
     setLoading(false);
     if (r === "driver") {
