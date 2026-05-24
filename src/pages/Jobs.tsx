@@ -1523,7 +1523,7 @@ export default function Jobs() {
                         Verify
                       </Button>
                     )}
-                    {isMember && j.created_by === user?.id && (
+                    {((isMember && j.created_by === user?.id) || isDispatch) && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -1534,11 +1534,24 @@ export default function Jobs() {
                         {j.pending_edit ? "Pending…" : "Edit"}
                       </Button>
                     )}
-                    {isMember && (
+                    {(isMember || isDispatch) && (
                       <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
                         <Copy className="h-4 w-4 mr-1" />
                         Duplicate
                       </Button>
+                    )}
+                    {isDispatch && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => openAssign(j)} className="ml-1">
+                          <UserPlus className="h-4 w-4 mr-1" />
+                          {j.assigned_driver_id ? "Reassign" : "Assign"}
+                        </Button>
+                        {j.assigned_driver_id && (
+                          <Button size="sm" variant="ghost" onClick={() => unassignJob(j)} title="Unassign (hold)">
+                            Hold
+                          </Button>
+                        )}
+                      </>
                     )}
                     {isAdmin && (
                       <DropdownMenu>
