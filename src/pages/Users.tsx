@@ -99,6 +99,7 @@ export default function Users() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="dispatch_admin">Dispatch Admin</SelectItem>
                     <SelectItem value="member">Member (Staff)</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
@@ -132,6 +133,7 @@ export default function Users() {
                   <SelectTrigger className="h-8 flex-1"><SelectValue placeholder="Set role" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="dispatch_admin">Dispatch Admin</SelectItem>
                     <SelectItem value="member">Member</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
@@ -156,6 +158,7 @@ export default function Users() {
                     <SelectTrigger className="h-8 w-[160px]"><SelectValue placeholder="Set role" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="dispatch_admin">Dispatch Admin</SelectItem>
                       <SelectItem value="member">Member</SelectItem>
                       <SelectItem value="driver">Driver</SelectItem>
                     </SelectContent>
