@@ -86,11 +86,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const roles = (data ?? []).map((r) => r.role as AppRole);
     const r: AppRole | null = roles.includes("super_admin")
       ? "super_admin"
-      : roles.includes("member")
-        ? "member"
-        : roles.includes("driver")
-          ? "driver"
-          : null;
+      : roles.includes("dispatch_admin")
+        ? "dispatch_admin"
+        : roles.includes("member")
+          ? "member"
+          : roles.includes("driver")
+            ? "driver"
+            : null;
     setRole(r);
     setLoading(false);
     if (r === "driver") {
