@@ -2,7 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useLocation } from "react-router-dom";
 import { ReactNode } from "react";
 
-type AppRole = "super_admin" | "member" | "driver";
+type AppRole = "super_admin" | "dispatch_admin" | "member" | "driver";
 
 export const ProtectedRoute = ({ children, roles }: { children: ReactNode; roles?: AppRole[] }) => {
   const { session, role, loading } = useAuth();
