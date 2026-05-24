@@ -1396,7 +1396,7 @@ export default function Jobs() {
                         </span>
                       )}
 
-                      {!j.cod && j.show_price && j.price != null && (
+                      {!j.cod && (j.show_price || isDriver) && j.price != null && (
                         <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
                           ${Number(j.price).toFixed(2)}
                         </span>
