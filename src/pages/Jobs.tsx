@@ -111,6 +111,8 @@ export default function Jobs() {
   const { pathname } = useLocation();
   const historyMode = pathname.startsWith("/history");
   const isAdmin = role === "super_admin";
+  const isDispatch = role === "dispatch_admin";
+  const isAssigner = isAdmin || isDispatch; // can assign/unassign drivers
   const isMember = role === "member";
   const isDriver = role === "driver";
 
