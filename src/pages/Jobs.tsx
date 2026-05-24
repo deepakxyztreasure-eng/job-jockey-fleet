@@ -1574,6 +1574,12 @@ export default function Jobs() {
                             <UserPlus className="h-4 w-4 mr-2" />
                             {j.assigned_driver_id ? "Reassign driver" : "Assign driver"}
                           </DropdownMenuItem>
+                          {j.assigned_driver_id && (
+                            <DropdownMenuItem onClick={() => unassignJob(j)}>
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Unassign (hold)
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => startEdit(j)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
