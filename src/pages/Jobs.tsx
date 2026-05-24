@@ -1217,6 +1217,11 @@ export default function Jobs() {
                       COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
                     </span>
                   )}
+                  {!j.cod && (j.show_price || isDriver) && j.price != null && (
+                    <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
+                      ${Number(j.price).toFixed(2)}
+                    </span>
+                  )}
                 </div>
                 {j.start_time && (
                   <div className="text-[11px] text-muted-foreground mt-0.5">
