@@ -1291,15 +1291,27 @@ export default function Jobs() {
                   <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete
                 </Button>
               )}
-              {isMember && j.created_by === user?.id && (
+              {(isMember && j.created_by === user?.id) || isDispatch ? (
                 <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
                   <Pencil className="h-3.5 w-3.5 mr-1" />{j.pending_edit ? "Pending…" : "Edit"}
                 </Button>
-              )}
-              {isMember && (
+              ) : null}
+              {(isMember || isDispatch) && (
                 <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
                   <Copy className="h-3.5 w-3.5 mr-1" /> Duplicate
                 </Button>
+              )}
+              {isAssigner && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => openAssign(j)}>
+                    <UserPlus className="h-3.5 w-3.5 mr-1" /> {j.assigned_driver_id ? "Reassign" : "Assign"}
+                  </Button>
+                  {j.assigned_driver_id && (
+                    <Button size="sm" variant="ghost" onClick={() => unassignJob(j)} title="Unassign (hold)">
+                      Hold
+                    </Button>
+                  )}
+                </>
               )}
               {isAdmin && (
                 <>
@@ -1308,9 +1320,6 @@ export default function Jobs() {
                       <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Verify
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => openAssign(j)}>
-                    <UserPlus className="h-3.5 w-3.5 mr-1" /> {j.assigned_driver_id ? "Reassign" : "Assign"}
-                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
