@@ -32,6 +32,13 @@ export function AppSidebar() {
     { title: "History", url: "/history", icon: History },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
+  const dispatchItems = [
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+    { title: "Jobs", url: "/jobs", icon: Briefcase },
+    { title: "History", url: "/history", icon: History },
+    { title: "Drivers", url: "/drivers", icon: Users },
+    { title: "Notifications", url: "/notifications", icon: Bell },
+  ];
   const driverItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "My Jobs", url: "/jobs", icon: Briefcase },
@@ -39,7 +46,7 @@ export function AppSidebar() {
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
 
-  const items = role === "super_admin" ? adminItems : role === "driver" ? driverItems : memberItems;
+  const items = role === "super_admin" ? adminItems : role === "dispatch_admin" ? dispatchItems : role === "driver" ? driverItems : memberItems;
   const isActive = (p: string) => pathname === p;
 
   return (
