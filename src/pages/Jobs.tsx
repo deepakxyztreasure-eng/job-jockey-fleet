@@ -492,6 +492,27 @@ export default function Jobs() {
     setAssignFor(null);
   };
 
+  const unassignJob = async (j: any) => {
+    if (!j.assigned_driver_id) return;
+    if (!confirm(`Unassign ${j.drivers?.full_name ?? "driver"} from this job? It will be put on hold.`)) return;
+    const { error } = await supabase
+      .from("jobs")
+      .update({ assigned_driver_id: null, status: "pending" as any, start_time: j.start_time, end_time: null })
+      .eq("id", j.id);
+    if (error) return toast.error(error.message);
+    const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", j.assigned_driver_id).maybeSingle();
+    if (drv?.user_id) {
+      await supabase.from("notifications").insert({
+        user_id: drv.user_id,
+        title: "Job unassigned",
+        body: `${j.title} (Invoice ${j.invoice_number}) has been put on hold`,
+        type: "job_unassigned",
+        job_id: j.id,
+      });
+    }
+    toast.success("Job unassigned (on hold)");
+  };
+
   // Driver actions
   const driverAccept = async (j: any) => {
     const { error } = await supabase
