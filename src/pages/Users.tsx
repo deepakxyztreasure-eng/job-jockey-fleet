@@ -27,7 +27,7 @@ export default function Users() {
     const roleMap = new Map<string, Role>();
     (roles ?? []).forEach((r: any) => {
       const cur = roleMap.get(r.user_id);
-      const rank: Record<Role, number> = { super_admin: 1, member: 2, driver: 3 };
+      const rank: Record<Role, number> = { super_admin: 1, dispatch_admin: 2, member: 3, driver: 4 };
       if (!cur || rank[r.role as Role] < rank[cur]) roleMap.set(r.user_id, r.role);
     });
     setRows((profiles ?? []).map((p: any) => ({ ...p, role: roleMap.get(p.id) ?? null })));
