@@ -326,8 +326,8 @@ export default function Jobs() {
       if (isMember && editing.created_by !== user?.id) {
         return toast.error("You cannot edit this job");
       }
-      // Members: route edits through approval queue
-      if (isMember) {
+      // Members & Dispatch Admins: route content edits through approval queue
+      if (isMember || isDispatch) {
         const { error } = await supabase
           .from("jobs")
           .update({
