@@ -61,10 +61,10 @@ export default function Users() {
         toast.success("Member added");
       } else {
         const { data, error } = await supabase.functions.invoke("admin-users", {
-          body: { action: "update", user_id: editing.id, full_name: form.full_name, phone: form.phone, role: form.role },
+          body: { action: "update", user_id: editing.id, full_name: form.full_name, phone: form.phone, role: form.role, password: form.password || undefined },
         });
         if (error || (data as any)?.error) { toast.error(((data as any)?.error) || error!.message); return; }
-        toast.success("Updated");
+        toast.success(form.password ? "Updated & password reset" : "Updated");
       }
       setOpen(false); load();
     } finally { setBusy(false); }
