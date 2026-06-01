@@ -92,6 +92,7 @@ export default function Users() {
               <div><Label>Full name</Label><Input value={form.full_name} onChange={(e)=>setForm({...form,full_name:e.target.value})} maxLength={120} /></div>
               <div><Label>Email *</Label><Input type="email" value={form.email} disabled={!!editing} onChange={(e)=>setForm({...form,email:e.target.value})} /></div>
               {!editing && <div><Label>Temporary password *</Label><Input type="text" value={form.password} onChange={(e)=>setForm({...form,password:e.target.value})} /></div>}
+              {editing && <div><Label>Reset password (optional)</Label><Input type="text" placeholder="Leave blank to keep current" value={form.password} onChange={(e)=>setForm({...form,password:e.target.value})} /><p className="text-[11px] text-muted-foreground mt-1">Min 6 characters. Share with the user securely.</p></div>}
               <div><Label>Phone</Label><Input value={form.phone} onChange={(e)=>setForm({...form,phone:e.target.value})} /></div>
               <div>
                 <Label>Role</Label>
