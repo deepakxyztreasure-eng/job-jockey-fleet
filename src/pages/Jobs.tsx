@@ -164,11 +164,11 @@ export default function Jobs() {
     const [{ data: js }, { data: ls }, { data: ds }, { data: ts }] = await Promise.all([
       supabase.from("jobs").select("*").order("start_time", { ascending: true }),
       supabase.from("store_locations").select("id,name,address,active").order("name"),
-      supabase.from("drivers").select("id,full_name,active").order("full_name"),
+      supabase.rpc("list_drivers_directory"),
       supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
     ]);
     const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
-    const drvMap = new Map((ds ?? []).map((d: any) => [d.id, d]));
+    const drvMap = new Map(((ds ?? []) as any[]).map((d: any) => [d.id, d]));
     const enriched = (js ?? []).map((j: any) => ({
       ...j,
       store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
@@ -337,18 +337,12 @@ export default function Jobs() {
           })
           .eq("id", editing.id);
         if (error) return toast.error(error.message);
-        const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "super_admin");
-        if (admins?.length) {
-          await supabase.from("notifications").insert(
-            admins.map((a) => ({
-              user_id: a.user_id,
-              title: "Job edit awaiting approval",
-              body: `${editing.title} (Invoice ${editing.invoice_number})`,
-              type: "edit_requested",
-              job_id: editing.id,
-            })),
-          );
-        }
+        await supabase.rpc("notify_admins", {
+          p_title: "Job edit awaiting approval",
+          p_body: `${editing.title} (Invoice ${editing.invoice_number})`,
+          p_type: "edit_requested",
+          p_job_id: editing.id,
+        });
         toast.success("Edit submitted for super admin approval");
         setOpen(false);
         load();
@@ -561,18 +555,12 @@ export default function Jobs() {
         .eq("id", completeFor.id);
       if (error) throw error;
 
-      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "super_admin");
-      if (admins?.length) {
-        await supabase.from("notifications").insert(
-          admins.map((a) => ({
-            user_id: a.user_id,
-            title: "Completion requested",
-            body: `${completeFor.title} (Invoice ${completeFor.invoice_number}) awaits verification`,
-            type: "completion_requested",
-            job_id: completeFor.id,
-          })),
-        );
-      }
+      await supabase.rpc("notify_admins", {
+        p_title: "Completion requested",
+        p_body: `${completeFor.title} (Invoice ${completeFor.invoice_number}) awaits verification`,
+        p_type: "completion_requested",
+        p_job_id: completeFor.id,
+      });
       toast.success("Sent for admin verification");
       setCompleteFor(null);
       setCompNotes("");

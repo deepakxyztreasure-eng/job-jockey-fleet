@@ -496,6 +496,24 @@ export type Database = {
         }
         Returns: boolean
       }
+      list_drivers_directory: {
+        Args: never
+        Returns: {
+          active: boolean
+          full_name: string
+          id: string
+          user_id: string
+        }[]
+      }
+      notify_admins: {
+        Args: {
+          p_body: string
+          p_job_id: string
+          p_title: string
+          p_type: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "super_admin" | "member" | "driver" | "dispatch_admin"

@@ -20,10 +20,12 @@ export default function Dashboard() {
   useEffect(() => {
     const load = async () => {
       const [{ data: js }, { data: ds }] = await Promise.all([
-        supabase.from("jobs").select("id,title,status,priority,scheduled_date,start_time,invoice_number,assigned_driver_id,created_at,drivers(full_name)").order("created_at", { ascending: false }),
-        supabase.from("drivers").select("id,active,full_name"),
+        supabase.from("jobs").select("id,title,status,priority,scheduled_date,start_time,invoice_number,assigned_driver_id,created_at").order("created_at", { ascending: false }),
+        supabase.rpc("list_drivers_directory"),
       ]);
-      setJobs(js ?? []); setDrivers(ds ?? []);
+      const drvMap = new Map(((ds ?? []) as any[]).map((d: any) => [d.id, { full_name: d.full_name }]));
+      const enriched = (js ?? []).map((j: any) => ({ ...j, drivers: j.assigned_driver_id ? drvMap.get(j.assigned_driver_id) ?? null : null }));
+      setJobs(enriched); setDrivers(ds ?? []);
     };
     load();
     const ch = supabase.channel("dash-rt").on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, load).subscribe();
