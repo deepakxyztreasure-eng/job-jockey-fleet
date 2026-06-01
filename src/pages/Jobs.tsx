@@ -586,6 +586,9 @@ export default function Jobs() {
 
   const adminApprove = async () => {
     if (!verifyFor || !user) return;
+    if (verifyFor.payment_status === "pending" || verifyFor.payment_status === "partial") {
+      return toast.error("Cannot complete: payment is pending or partial. Mark as Paid first.");
+    }
     const { error } = await supabase
       .from("jobs")
       .update({
@@ -657,6 +660,14 @@ export default function Jobs() {
   };
   const bulkUpdate = async (patch: any, label: string) => {
     if (selected.size === 0) return;
+    if (patch.status === "completed") {
+      const blocked = jobs.filter(
+        (j) => selected.has(j.id) && (j.payment_status === "pending" || j.payment_status === "partial"),
+      );
+      if (blocked.length) {
+        return toast.error(`${blocked.length} job(s) have pending/partial payment. Mark as Paid first.`);
+      }
+    }
     if (!confirm(`${label} ${selected.size} job(s)?`)) return;
     const { error } = await supabase.from("jobs").update(patch).in("id", Array.from(selected));
     if (error) return toast.error(error.message);
@@ -1692,12 +1703,20 @@ export default function Jobs() {
               </div>
             </div>
           )}
+          {verifyFor && (verifyFor.payment_status === "pending" || verifyFor.payment_status === "partial") && (
+            <div className="text-xs text-warning -mt-2">
+              Payment is {verifyFor.payment_status}. Update payment to Paid before approving completion.
+            </div>
+          )}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={adminReject}>
               <XCircle className="h-4 w-4 mr-2" />
               Reject
             </Button>
-            <Button onClick={adminApprove}>
+            <Button
+              onClick={adminApprove}
+              disabled={!!verifyFor && (verifyFor.payment_status === "pending" || verifyFor.payment_status === "partial")}
+            >
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Approve
             </Button>
