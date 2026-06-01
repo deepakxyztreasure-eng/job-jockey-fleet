@@ -48,13 +48,26 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update") {
-      const { user_id, full_name, phone, role } = body;
+      const { user_id, full_name, phone, role, password } = body;
       if (!user_id) return json({ error: "user_id required" }, 400);
       await admin.from("profiles").update({ full_name, phone }).eq("id", user_id);
       if (role) {
         await admin.from("user_roles").delete().eq("user_id", user_id);
         await admin.from("user_roles").insert({ user_id, role });
       }
+      if (password && typeof password === "string" && password.length >= 6) {
+        const { error: pwErr } = await admin.auth.admin.updateUserById(user_id, { password });
+        if (pwErr) return json({ error: pwErr.message }, 400);
+      }
+      return json({ ok: true });
+    }
+
+    if (action === "reset_password") {
+      const { user_id, password } = body;
+      if (!user_id || !password) return json({ error: "user_id and password required" }, 400);
+      if (password.length < 6) return json({ error: "Password must be at least 6 characters" }, 400);
+      const { error } = await admin.auth.admin.updateUserById(user_id, { password });
+      if (error) return json({ error: error.message }, 400);
       return json({ ok: true });
     }
 
