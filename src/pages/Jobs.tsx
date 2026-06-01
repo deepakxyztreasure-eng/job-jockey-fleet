@@ -555,18 +555,12 @@ export default function Jobs() {
         .eq("id", completeFor.id);
       if (error) throw error;
 
-      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "super_admin");
-      if (admins?.length) {
-        await supabase.from("notifications").insert(
-          admins.map((a) => ({
-            user_id: a.user_id,
-            title: "Completion requested",
-            body: `${completeFor.title} (Invoice ${completeFor.invoice_number}) awaits verification`,
-            type: "completion_requested",
-            job_id: completeFor.id,
-          })),
-        );
-      }
+      await supabase.rpc("notify_admins", {
+        p_title: "Completion requested",
+        p_body: `${completeFor.title} (Invoice ${completeFor.invoice_number}) awaits verification`,
+        p_type: "completion_requested",
+        p_job_id: completeFor.id,
+      });
       toast.success("Sent for admin verification");
       setCompleteFor(null);
       setCompNotes("");
