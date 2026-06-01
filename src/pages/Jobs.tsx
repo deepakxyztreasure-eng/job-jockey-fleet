@@ -337,18 +337,12 @@ export default function Jobs() {
           })
           .eq("id", editing.id);
         if (error) return toast.error(error.message);
-        const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "super_admin");
-        if (admins?.length) {
-          await supabase.from("notifications").insert(
-            admins.map((a) => ({
-              user_id: a.user_id,
-              title: "Job edit awaiting approval",
-              body: `${editing.title} (Invoice ${editing.invoice_number})`,
-              type: "edit_requested",
-              job_id: editing.id,
-            })),
-          );
-        }
+        await supabase.rpc("notify_admins", {
+          p_title: "Job edit awaiting approval",
+          p_body: `${editing.title} (Invoice ${editing.invoice_number})`,
+          p_type: "edit_requested",
+          p_job_id: editing.id,
+        });
         toast.success("Edit submitted for super admin approval");
         setOpen(false);
         load();
