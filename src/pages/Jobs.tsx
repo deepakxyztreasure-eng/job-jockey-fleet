@@ -164,11 +164,11 @@ export default function Jobs() {
     const [{ data: js }, { data: ls }, { data: ds }, { data: ts }] = await Promise.all([
       supabase.from("jobs").select("*").order("start_time", { ascending: true }),
       supabase.from("store_locations").select("id,name,address,active").order("name"),
-      supabase.from("drivers").select("id,full_name,active").order("full_name"),
+      supabase.rpc("list_drivers_directory"),
       supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
     ]);
     const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
-    const drvMap = new Map((ds ?? []).map((d: any) => [d.id, d]));
+    const drvMap = new Map(((ds ?? []) as any[]).map((d: any) => [d.id, d]));
     const enriched = (js ?? []).map((j: any) => ({
       ...j,
       store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
