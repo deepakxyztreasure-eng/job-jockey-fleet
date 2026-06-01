@@ -44,6 +44,13 @@ export type Database = {
             referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "driver_checklist_logs_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers_directory"
+            referencedColumns: ["id"]
+          },
         ]
       }
       driver_locations: {
@@ -74,6 +81,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_locations_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -313,6 +327,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "jobs_assigned_driver_id_fkey"
+            columns: ["assigned_driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers_directory"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "jobs_delivery_location_id_fkey"
             columns: ["delivery_location_id"]
             isOneToOne: false
@@ -482,7 +503,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      drivers_directory: {
+        Row: {
+          active: boolean | null
+          full_name: string | null
+          id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          full_name?: string | null
+          id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          full_name?: string | null
+          id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_user_role: {
@@ -495,6 +536,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      notify_admins: {
+        Args: {
+          p_body: string
+          p_job_id: string
+          p_title: string
+          p_type: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
