@@ -161,14 +161,19 @@ export default function Jobs() {
   const [assignEnd, setAssignEnd] = useState("");
 
   const load = async () => {
-    const [{ data: js }, { data: ls }, { data: ds }, { data: ts }] = await Promise.all([
+    const driversQuery = isAssigner
+      ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
+      : supabase.rpc("list_drivers_directory");
+    const [jobsRes, locRes, drvRes, titlesRes] = await Promise.all([
       supabase.from("jobs").select("*").order("start_time", { ascending: true }),
       supabase.from("store_locations").select("id,name,address,active").order("name"),
-      supabase.rpc("list_drivers_directory"),
+      driversQuery,
       supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
     ]);
+    if (drvRes.error) console.error("drivers load error", drvRes.error);
+    const js = jobsRes.data, ls = locRes.data, ds = (drvRes.data ?? []) as any[], ts = titlesRes.data;
     const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
-    const drvMap = new Map(((ds ?? []) as any[]).map((d: any) => [d.id, d]));
+    const drvMap = new Map(ds.map((d: any) => [d.id, d]));
     const enriched = (js ?? []).map((j: any) => ({
       ...j,
       store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
@@ -176,7 +181,7 @@ export default function Jobs() {
     }));
     setJobs(enriched);
     setLocations((ls ?? []).filter((l: any) => l.active !== false));
-    setDrivers((ds ?? []).filter((d: any) => d.active));
+    setDrivers(ds.filter((d: any) => d.active));
     setJobTitles(((ts ?? []) as any[]).filter((t) => t.active !== false));
   };
   useEffect(() => {
