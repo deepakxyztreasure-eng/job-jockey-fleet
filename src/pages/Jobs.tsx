@@ -1604,7 +1604,8 @@ export default function Jobs() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
