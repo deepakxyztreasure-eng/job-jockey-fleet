@@ -650,14 +650,6 @@ export default function Jobs() {
   };
   const bulkUpdate = async (patch: any, label: string) => {
     if (selected.size === 0) return;
-    if (patch.status === "completed") {
-      const blocked = jobs.filter(
-        (j) => selected.has(j.id) && (j.payment_status === "pending" || j.payment_status === "partial"),
-      );
-      if (blocked.length) {
-        return toast.error(`${blocked.length} job(s) have pending/partial payment. Mark as Paid first.`);
-      }
-    }
     if (!confirm(`${label} ${selected.size} job(s)?`)) return;
     const { error } = await supabase.from("jobs").update(patch).in("id", Array.from(selected));
     if (error) return toast.error(error.message);
