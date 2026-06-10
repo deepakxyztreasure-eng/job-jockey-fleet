@@ -579,9 +579,6 @@ export default function Jobs() {
 
   const adminApprove = async () => {
     if (!verifyFor || !user) return;
-    if (verifyFor.payment_status === "pending" || verifyFor.payment_status === "partial") {
-      return toast.error("Cannot complete: payment is pending or partial. Mark as Paid first.");
-    }
     const { error } = await supabase
       .from("jobs")
       .update({
@@ -653,14 +650,6 @@ export default function Jobs() {
   };
   const bulkUpdate = async (patch: any, label: string) => {
     if (selected.size === 0) return;
-    if (patch.status === "completed") {
-      const blocked = jobs.filter(
-        (j) => selected.has(j.id) && (j.payment_status === "pending" || j.payment_status === "partial"),
-      );
-      if (blocked.length) {
-        return toast.error(`${blocked.length} job(s) have pending/partial payment. Mark as Paid first.`);
-      }
-    }
     if (!confirm(`${label} ${selected.size} job(s)?`)) return;
     const { error } = await supabase.from("jobs").update(patch).in("id", Array.from(selected));
     if (error) return toast.error(error.message);
@@ -1381,8 +1370,10 @@ export default function Jobs() {
                   </td>
                 </tr>
               )}
-              {filtered.map((j) => (
-                <tr key={j.id}>
+              {filtered.map((j) => {
+                const flagUnpaid = historyMode && (j.payment_status === "pending" || j.payment_status === "partial");
+                return (
+                <tr key={j.id} className={flagUnpaid ? "bg-warning/10" : ""}>
                   {isAdmin && (
                     <td>
                       <Checkbox checked={selected.has(j.id)} onCheckedChange={() => toggleOne(j.id)} />
@@ -1414,6 +1405,11 @@ export default function Jobs() {
                         <button onClick={() => viewProof(j.proof_image_url)} title="View proof">
                           <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
                         </button>
+                      )}
+                      {flagUnpaid && (
+                        <span className="text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 bg-warning/20 text-warning font-medium">
+                          {j.payment_status}
+                        </span>
                       )}
                     </div>
 
@@ -1613,7 +1609,8 @@ export default function Jobs() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1698,7 +1695,7 @@ export default function Jobs() {
           )}
           {verifyFor && (verifyFor.payment_status === "pending" || verifyFor.payment_status === "partial") && (
             <div className="text-xs text-warning -mt-2">
-              Payment is {verifyFor.payment_status}. Update payment to Paid before approving completion.
+              Note: payment is {verifyFor.payment_status}. This job will be flagged in history.
             </div>
           )}
           <DialogFooter className="gap-2">
@@ -1706,10 +1703,7 @@ export default function Jobs() {
               <XCircle className="h-4 w-4 mr-2" />
               Reject
             </Button>
-            <Button
-              onClick={adminApprove}
-              disabled={!!verifyFor && (verifyFor.payment_status === "pending" || verifyFor.payment_status === "partial")}
-            >
+            <Button onClick={adminApprove}>
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Approve
             </Button>
