@@ -1338,7 +1338,8 @@ export default function Jobs() {
               )}
             </div>
           </div>
-        ))}
+        )}
+        )}
       </div>
 
 
