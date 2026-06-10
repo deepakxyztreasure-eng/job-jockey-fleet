@@ -1370,8 +1370,10 @@ export default function Jobs() {
                   </td>
                 </tr>
               )}
-              {filtered.map((j) => (
-                <tr key={j.id}>
+              {filtered.map((j) => {
+                const flagUnpaid = historyMode && (j.payment_status === "pending" || j.payment_status === "partial");
+                return (
+                <tr key={j.id} className={flagUnpaid ? "bg-warning/10" : ""}>
                   {isAdmin && (
                     <td>
                       <Checkbox checked={selected.has(j.id)} onCheckedChange={() => toggleOne(j.id)} />
