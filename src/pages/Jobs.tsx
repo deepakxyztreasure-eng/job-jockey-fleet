@@ -579,9 +579,6 @@ export default function Jobs() {
 
   const adminApprove = async () => {
     if (!verifyFor || !user) return;
-    if (verifyFor.payment_status === "pending" || verifyFor.payment_status === "partial") {
-      return toast.error("Cannot complete: payment is pending or partial. Mark as Paid first.");
-    }
     const { error } = await supabase
       .from("jobs")
       .update({
