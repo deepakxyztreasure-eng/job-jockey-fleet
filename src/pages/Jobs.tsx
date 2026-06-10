@@ -1406,6 +1406,11 @@ export default function Jobs() {
                           <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
                         </button>
                       )}
+                      {flagUnpaid && (
+                        <span className="text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 bg-warning/20 text-warning font-medium">
+                          {j.payment_status}
+                        </span>
+                      )}
                     </div>
 
                     {j.start_time && (
