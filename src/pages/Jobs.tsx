@@ -1191,8 +1191,10 @@ export default function Jobs() {
             No jobs match filters
           </div>
         )}
-        {filtered.map((j) => (
-          <div key={j.id} className="rounded-xl border bg-card p-3 space-y-2">
+        {filtered.map((j) => {
+          const flagUnpaid = j.payment_status === "pending" || j.payment_status === "partial";
+          return (
+          <div key={j.id} className={`rounded-xl border p-3 space-y-2 ${flagUnpaid ? "border-warning bg-warning/10" : "bg-card"}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -1336,7 +1338,8 @@ export default function Jobs() {
               )}
             </div>
           </div>
-        ))}
+        )}
+        )}
       </div>
 
 
@@ -1371,7 +1374,7 @@ export default function Jobs() {
                 </tr>
               )}
               {filtered.map((j) => {
-                const flagUnpaid = historyMode && (j.payment_status === "pending" || j.payment_status === "partial");
+                const flagUnpaid = j.payment_status === "pending" || j.payment_status === "partial";
                 return (
                 <tr key={j.id} className={flagUnpaid ? "bg-warning/10" : ""}>
                   {isAdmin && (
