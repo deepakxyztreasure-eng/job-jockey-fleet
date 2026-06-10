@@ -1687,7 +1687,7 @@ export default function Jobs() {
           )}
           {verifyFor && (verifyFor.payment_status === "pending" || verifyFor.payment_status === "partial") && (
             <div className="text-xs text-warning -mt-2">
-              Payment is {verifyFor.payment_status}. Update payment to Paid before approving completion.
+              Note: payment is {verifyFor.payment_status}. This job will be flagged in history.
             </div>
           )}
           <DialogFooter className="gap-2">
@@ -1695,10 +1695,7 @@ export default function Jobs() {
               <XCircle className="h-4 w-4 mr-2" />
               Reject
             </Button>
-            <Button
-              onClick={adminApprove}
-              disabled={!!verifyFor && (verifyFor.payment_status === "pending" || verifyFor.payment_status === "partial")}
-            >
+            <Button onClick={adminApprove}>
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Approve
             </Button>
