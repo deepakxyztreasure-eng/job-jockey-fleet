@@ -1254,23 +1254,25 @@ export default function Jobs() {
                   <div>{j.number_of_loads}</div>
                 </div>
               )}
-              <div>
-                <div className="text-muted-foreground">Payment</div>
-                {isAdmin ? (
-                  <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
-                    <SelectTrigger className="h-7 text-[11px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_STATUSES.map((p) => (
-                        <SelectItem key={p} value={p}>{p}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <PaymentBadge status={j.payment_status} />
-                )}
-              </div>
+              {!(isDriver && !j.cod) && (
+                <div>
+                  <div className="text-muted-foreground">Payment</div>
+                  {isAdmin ? (
+                    <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
+                      <SelectTrigger className="h-7 text-[11px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_STATUSES.map((p) => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <PaymentBadge status={j.payment_status} />
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t">
