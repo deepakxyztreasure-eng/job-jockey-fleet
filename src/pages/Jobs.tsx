@@ -1457,7 +1457,9 @@ export default function Jobs() {
                     )}
                   </td>
                   <td>
-                    {isAdmin ? (
+                    {isDriver && !j.cod ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : isAdmin ? (
                       <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
                         <SelectTrigger className="h-8 w-[110px]">
                           <SelectValue />
