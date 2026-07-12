@@ -1840,17 +1840,17 @@ export default function Jobs() {
                         : "—",
                   )}
                   {row("Delivery location", j.delivery_address)}
-                  {row(
+                  {(!isDriver || j.cod) && row(
                     "Payment type",
                     j.cod
                       ? `Cash on Delivery (COD)${j.price != null ? ` — $${Number(j.price).toFixed(2)}` : ""}`
                       : "Invoice",
                   )}
-                  {row("Invoice number", j.invoice_number || "—")}
-                  {!j.cod && j.price != null && row("Price (ex GST)", `$${Number(j.price).toFixed(2)}`)}
-                  {!j.cod && j.price != null && row("GST (10%)", `$${(Number(j.price) * 0.1).toFixed(2)}`)}
-                  {!j.cod && j.price != null && row("Total (inc GST)", `$${(Number(j.price) * 1.1).toFixed(2)}`)}
-                  {row("COD", j.cod ? "Yes" : "No")}
+                  {!isDriver && row("Invoice number", j.invoice_number || "—")}
+                  {!isDriver && !j.cod && j.price != null && row("Price (ex GST)", `$${Number(j.price).toFixed(2)}`)}
+                  {!isDriver && !j.cod && j.price != null && row("GST (10%)", `$${(Number(j.price) * 0.1).toFixed(2)}`)}
+                  {!isDriver && !j.cod && j.price != null && row("Total (inc GST)", `$${(Number(j.price) * 1.1).toFixed(2)}`)}
+                  {!isDriver && row("COD", j.cod ? "Yes" : "No")}
                   {row("Customer name", j.customer_name)}
                   {row("Mobile number", j.customer_mobile)}
                   {row("Unit", j.quantity_unit)}
