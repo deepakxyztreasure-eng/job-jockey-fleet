@@ -1047,7 +1047,10 @@ export default function Jobs() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              {ALL_STATUSES.map((s) => (
+              {(historyMode
+                ? (HISTORY_STATUSES as readonly string[])
+                : ALL_STATUSES.filter((s) => !(HISTORY_STATUSES as readonly string[]).includes(s))
+              ).map((s) => (
                 <SelectItem key={s} value={s}>
                   {s.replace("_", " ")}
                 </SelectItem>
