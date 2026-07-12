@@ -137,6 +137,11 @@ export default function Jobs() {
   const [fTo, setFTo] = useState("");
   const [fPendingEdit, setFPendingEdit] = useState(false);
 
+  // Reset status filter when switching between Jobs and History so a hidden option isn't left selected
+  useEffect(() => {
+    setFStatus("all");
+  }, [historyMode]);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Driver completion modal
@@ -1047,7 +1052,10 @@ export default function Jobs() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              {ALL_STATUSES.map((s) => (
+              {(historyMode
+                ? (HISTORY_STATUSES as readonly string[])
+                : ALL_STATUSES.filter((s) => !(HISTORY_STATUSES as readonly string[]).includes(s))
+              ).map((s) => (
                 <SelectItem key={s} value={s}>
                   {s.replace("_", " ")}
                 </SelectItem>
