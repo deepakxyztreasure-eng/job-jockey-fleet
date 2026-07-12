@@ -1376,7 +1376,7 @@ export default function Jobs() {
                 </tr>
               )}
               {filtered.map((j) => {
-                const flagUnpaid = j.payment_status === "pending" || j.payment_status === "partial";
+                const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
                 return (
                 <tr key={j.id} className={flagUnpaid ? "bg-warning/10" : ""}>
                   {isAdmin && (
