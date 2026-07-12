@@ -1192,7 +1192,7 @@ export default function Jobs() {
           </div>
         )}
         {filtered.map((j) => {
-          const flagUnpaid = j.payment_status === "pending" || j.payment_status === "partial";
+          const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
           return (
           <div key={j.id} className={`rounded-xl border p-3 space-y-2 ${flagUnpaid ? "border-warning bg-warning/10" : "bg-card"}`}>
             <div className="flex items-start justify-between gap-2">
@@ -1212,7 +1212,7 @@ export default function Jobs() {
                       COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
                     </span>
                   )}
-                  {!j.cod && (j.show_price || isDriver) && j.price != null && (
+                  {!j.cod && !isDriver && j.show_price && j.price != null && (
                     <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
                       ${Number(j.price).toFixed(2)}
                     </span>
@@ -1254,23 +1254,25 @@ export default function Jobs() {
                   <div>{j.number_of_loads}</div>
                 </div>
               )}
-              <div>
-                <div className="text-muted-foreground">Payment</div>
-                {isAdmin ? (
-                  <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
-                    <SelectTrigger className="h-7 text-[11px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_STATUSES.map((p) => (
-                        <SelectItem key={p} value={p}>{p}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <PaymentBadge status={j.payment_status} />
-                )}
-              </div>
+              {!(isDriver && !j.cod) && (
+                <div>
+                  <div className="text-muted-foreground">Payment</div>
+                  {isAdmin ? (
+                    <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
+                      <SelectTrigger className="h-7 text-[11px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_STATUSES.map((p) => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <PaymentBadge status={j.payment_status} />
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t">
@@ -1374,7 +1376,7 @@ export default function Jobs() {
                 </tr>
               )}
               {filtered.map((j) => {
-                const flagUnpaid = j.payment_status === "pending" || j.payment_status === "partial";
+                const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
                 return (
                 <tr key={j.id} className={flagUnpaid ? "bg-warning/10" : ""}>
                   {isAdmin && (
@@ -1399,7 +1401,7 @@ export default function Jobs() {
                         </span>
                       )}
 
-                      {!j.cod && (j.show_price || isDriver) && j.price != null && (
+                      {!j.cod && !isDriver && j.show_price && j.price != null && (
                         <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
                           ${Number(j.price).toFixed(2)}
                         </span>
@@ -1455,7 +1457,9 @@ export default function Jobs() {
                     )}
                   </td>
                   <td>
-                    {isAdmin ? (
+                    {isDriver && !j.cod ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : isAdmin ? (
                       <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
                         <SelectTrigger className="h-8 w-[110px]">
                           <SelectValue />
@@ -1836,17 +1840,17 @@ export default function Jobs() {
                         : "—",
                   )}
                   {row("Delivery location", j.delivery_address)}
-                  {row(
+                  {(!isDriver || j.cod) && row(
                     "Payment type",
                     j.cod
                       ? `Cash on Delivery (COD)${j.price != null ? ` — $${Number(j.price).toFixed(2)}` : ""}`
                       : "Invoice",
                   )}
-                  {row("Invoice number", j.invoice_number || "—")}
-                  {!j.cod && j.price != null && row("Price (ex GST)", `$${Number(j.price).toFixed(2)}`)}
-                  {!j.cod && j.price != null && row("GST (10%)", `$${(Number(j.price) * 0.1).toFixed(2)}`)}
-                  {!j.cod && j.price != null && row("Total (inc GST)", `$${(Number(j.price) * 1.1).toFixed(2)}`)}
-                  {row("COD", j.cod ? "Yes" : "No")}
+                  {!isDriver && row("Invoice number", j.invoice_number || "—")}
+                  {!isDriver && !j.cod && j.price != null && row("Price (ex GST)", `$${Number(j.price).toFixed(2)}`)}
+                  {!isDriver && !j.cod && j.price != null && row("GST (10%)", `$${(Number(j.price) * 0.1).toFixed(2)}`)}
+                  {!isDriver && !j.cod && j.price != null && row("Total (inc GST)", `$${(Number(j.price) * 1.1).toFixed(2)}`)}
+                  {!isDriver && row("COD", j.cod ? "Yes" : "No")}
                   {row("Customer name", j.customer_name)}
                   {row("Mobile number", j.customer_mobile)}
                   {row("Unit", j.quantity_unit)}
