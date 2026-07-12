@@ -137,6 +137,11 @@ export default function Jobs() {
   const [fTo, setFTo] = useState("");
   const [fPendingEdit, setFPendingEdit] = useState(false);
 
+  // Reset status filter when switching between Jobs and History so a hidden option isn't left selected
+  useEffect(() => {
+    setFStatus("all");
+  }, [historyMode]);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Driver completion modal
