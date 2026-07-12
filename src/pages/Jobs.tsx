@@ -1192,7 +1192,7 @@ export default function Jobs() {
           </div>
         )}
         {filtered.map((j) => {
-          const flagUnpaid = j.payment_status === "pending" || j.payment_status === "partial";
+          const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
           return (
           <div key={j.id} className={`rounded-xl border p-3 space-y-2 ${flagUnpaid ? "border-warning bg-warning/10" : "bg-card"}`}>
             <div className="flex items-start justify-between gap-2">
