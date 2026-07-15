@@ -131,16 +131,10 @@ export default function Jobs() {
   const [fStatus, setFStatus] = useState("all");
   const [fDriver, setFDriver] = useState("all");
   const [fLocation, setFLocation] = useState("all");
-  const [fPriority, setFPriority] = useState("all");
   const [fRange, setFRange] = useState<DateRange>("all");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [fPendingEdit, setFPendingEdit] = useState(false);
-
-  // Reset status filter when switching between Jobs and History so a hidden option isn't left selected
-  useEffect(() => {
-    setFStatus("all");
-  }, [historyMode]);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
