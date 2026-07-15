@@ -1052,10 +1052,7 @@ export default function Jobs() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              {(historyMode
-                ? (HISTORY_STATUSES as readonly string[])
-                : ALL_STATUSES.filter((s) => !(HISTORY_STATUSES as readonly string[]).includes(s))
-              ).map((s) => (
+              {ALL_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s.replace("_", " ")}
                 </SelectItem>
@@ -1088,16 +1085,6 @@ export default function Jobs() {
                   {l.name}
                 </SelectItem>
               ))}
-            </SelectContent>
-          </Select>
-          <Select value={fPriority} onValueChange={setFPriority}>
-            <SelectTrigger>
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any priority</SelectItem>
-              <SelectItem value="priority">Priority</SelectItem>
-              <SelectItem value="standard">Standard</SelectItem>
             </SelectContent>
           </Select>
           <Select value={fRange} onValueChange={(v) => setFRange(v as DateRange)}>
