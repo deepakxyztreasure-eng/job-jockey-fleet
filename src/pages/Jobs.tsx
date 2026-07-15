@@ -131,16 +131,10 @@ export default function Jobs() {
   const [fStatus, setFStatus] = useState("all");
   const [fDriver, setFDriver] = useState("all");
   const [fLocation, setFLocation] = useState("all");
-  const [fPriority, setFPriority] = useState("all");
   const [fRange, setFRange] = useState<DateRange>("all");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [fPendingEdit, setFPendingEdit] = useState(false);
-
-  // Reset status filter when switching between Jobs and History so a hidden option isn't left selected
-  useEffect(() => {
-    setFStatus("all");
-  }, [historyMode]);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -229,7 +223,6 @@ export default function Jobs() {
       if (fStatus !== "all" && j.status !== fStatus) return false;
       if (isAdmin && fDriver !== "all" && j.assigned_driver_id !== fDriver) return false;
       if (fLocation !== "all" && j.pickup_location_id !== fLocation) return false;
-      if (fPriority !== "all" && j.priority !== fPriority) return false;
       if (from || to) {
         const d = j.scheduled_date
           ? new Date(j.scheduled_date)
@@ -242,7 +235,7 @@ export default function Jobs() {
       if (isAdmin && fPendingEdit && !j.pending_edit) return false;
       return true;
     });
-  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin, fPendingEdit, historyMode]);
+  }, [jobs, search, fStatus, fDriver, fLocation, fRange, fFrom, fTo, isAdmin, fPendingEdit, historyMode]);
 
   const startCreate = () => {
     setEditing(null);
@@ -1052,10 +1045,7 @@ export default function Jobs() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              {(historyMode
-                ? (HISTORY_STATUSES as readonly string[])
-                : ALL_STATUSES.filter((s) => !(HISTORY_STATUSES as readonly string[]).includes(s))
-              ).map((s) => (
+              {ALL_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s.replace("_", " ")}
                 </SelectItem>
@@ -1088,16 +1078,6 @@ export default function Jobs() {
                   {l.name}
                 </SelectItem>
               ))}
-            </SelectContent>
-          </Select>
-          <Select value={fPriority} onValueChange={setFPriority}>
-            <SelectTrigger>
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any priority</SelectItem>
-              <SelectItem value="priority">Priority</SelectItem>
-              <SelectItem value="standard">Standard</SelectItem>
             </SelectContent>
           </Select>
           <Select value={fRange} onValueChange={(v) => setFRange(v as DateRange)}>
