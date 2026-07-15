@@ -223,7 +223,6 @@ export default function Jobs() {
       if (fStatus !== "all" && j.status !== fStatus) return false;
       if (isAdmin && fDriver !== "all" && j.assigned_driver_id !== fDriver) return false;
       if (fLocation !== "all" && j.pickup_location_id !== fLocation) return false;
-      if (fPriority !== "all" && j.priority !== fPriority) return false;
       if (from || to) {
         const d = j.scheduled_date
           ? new Date(j.scheduled_date)
@@ -236,7 +235,7 @@ export default function Jobs() {
       if (isAdmin && fPendingEdit && !j.pending_edit) return false;
       return true;
     });
-  }, [jobs, search, fStatus, fDriver, fLocation, fPriority, fRange, fFrom, fTo, isAdmin, fPendingEdit, historyMode]);
+  }, [jobs, search, fStatus, fDriver, fLocation, fRange, fFrom, fTo, isAdmin, fPendingEdit, historyMode]);
 
   const startCreate = () => {
     setEditing(null);
