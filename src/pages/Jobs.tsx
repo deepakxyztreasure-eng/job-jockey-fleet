@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { compressImage } from "@/lib/compressImage";
 import { exportJobsCSV, exportJobsXLSX } from "@/lib/exportJobs";
 
 const ALL_STATUSES = [
@@ -542,8 +543,11 @@ export default function Jobs() {
     try {
       let proofUrl: string | null = null;
       if (compFile && user) {
-        const path = `${user.id}/${completeFor.id}-${Date.now()}-${compFile.name}`;
-        const { error: upErr } = await supabase.storage.from("job-proofs").upload(path, compFile);
+        const optimized = await compressImage(compFile);
+        const path = `${user.id}/${completeFor.id}-${Date.now()}-${optimized.name}`;
+        const { error: upErr } = await supabase.storage
+          .from("job-proofs")
+          .upload(path, optimized, { contentType: optimized.type });
         if (upErr) throw upErr;
         proofUrl = path;
       }
