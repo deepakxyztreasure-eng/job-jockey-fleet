@@ -15,3 +15,7 @@ verify_jwt = false
 [functions.send-driver-checkout]
 verify_jwt = true
 
+[functions.optimize-proofs]
+verify_jwt = true
+
+
