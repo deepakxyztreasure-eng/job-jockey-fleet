@@ -40,6 +40,7 @@ import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { compressImage } from "@/lib/compressImage";
 import { exportJobsCSV, exportJobsXLSX } from "@/lib/exportJobs";
+import { sendPushToUser } from "@/lib/push";
 
 const ALL_STATUSES = [
   "pending",
@@ -479,12 +480,19 @@ export default function Jobs() {
     if (error) return toast.error(error.message);
     const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", assignDriver).maybeSingle();
     if (drv?.user_id) {
+      const body = `${assignFor.title} (Invoice ${assignFor.invoice_number})`;
       await supabase.from("notifications").insert({
         user_id: drv.user_id,
         title: "New job assigned",
-        body: `${assignFor.title} (Invoice ${assignFor.invoice_number})`,
+        body,
         type: "job_assigned",
         job_id: assignFor.id,
+      });
+      await sendPushToUser(drv.user_id, {
+        title: "New job assigned",
+        body,
+        url: "/jobs",
+        tag: `job-${assignFor.id}`,
       });
     }
     toast.success("Driver assigned");
@@ -669,11 +677,23 @@ export default function Jobs() {
   };
   const bulkAssign = async (driverId: string) => {
     if (!driverId || selected.size === 0) return;
+    const count = selected.size;
     const { error } = await supabase
       .from("jobs")
       .update({ assigned_driver_id: driverId, status: "assigned" as any })
       .in("id", Array.from(selected));
     if (error) return toast.error(error.message);
+    const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", driverId).maybeSingle();
+    if (drv?.user_id) {
+      const body = `${count} job${count > 1 ? "s" : ""} assigned to you`;
+      await supabase.from("notifications").insert({
+        user_id: drv.user_id,
+        title: "New jobs assigned",
+        body,
+        type: "job_assigned",
+      });
+      await sendPushToUser(drv.user_id, { title: "New jobs assigned", body, url: "/jobs" });
+    }
     toast.success("Reassigned");
     setSelected(new Set());
   };

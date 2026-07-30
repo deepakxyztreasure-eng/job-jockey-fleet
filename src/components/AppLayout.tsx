@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import DriverChecklistDialog from "@/components/DriverChecklistDialog";
+import PushToggle from "@/components/PushToggle";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export default function AppLayout() {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="capitalize text-[10px] sm:text-xs">{role?.replace("_"," ")}</Badge>
+              <PushToggle />
               {role === "driver" && (
                 <Button
                   size="sm"
