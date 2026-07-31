@@ -38,9 +38,10 @@ export default function AppLayout() {
               )}
             </div>
           </header>
-          <main className="flex-1 p-3 sm:p-6 bg-background">
+          <main className="flex-1 p-3 sm:p-6 pb-safe pl-safe pr-safe bg-background">
             <Outlet />
           </main>
+
           <DriverChecklistDialog />
         </div>
       </div>
