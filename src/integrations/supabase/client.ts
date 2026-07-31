@@ -12,7 +12,17 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_pIEBqjyDuMVb6CnzH6Xxrw_hGAKyl6t
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
+    
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: "pkce",
   }
 });
+
+// Ask the browser to keep our storage (prevents iOS/Android evicting the saved login)
+if (typeof navigator !== "undefined" && navigator.storage?.persist) {
+  navigator.storage.persisted?.().then((already) => {
+    if (!already) navigator.storage.persist().catch(() => {});
+  }).catch(() => {});
+}
