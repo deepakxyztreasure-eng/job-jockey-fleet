@@ -15,7 +15,7 @@ export default function AppLayout() {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 border-b bg-card flex items-center justify-between px-3 sm:px-4 sticky top-0 z-30">
+          <header className="min-h-14 pt-safe pl-safe pr-safe border-b bg-card flex items-center justify-between px-3 sm:px-4 sticky top-0 z-30">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <SidebarTrigger />
               <h1 className="font-semibold text-sm text-foreground/80 truncate hidden sm:block">Operations Console</h1>
