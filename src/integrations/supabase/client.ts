@@ -12,7 +12,7 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_pIEBqjyDuMVb6CnzH6Xxrw_hGAKyl6t
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
-    storageKey: "jodha-auth",
+    
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
