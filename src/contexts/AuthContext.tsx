@@ -74,7 +74,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data.session?.user) fetchRole(data.session.user.id);
       else setLoading(false);
     });
-    return () => sub.subscription.unsubscribe();
+
+    // PWA resume: refresh the stored token so the login survives long backgrounding
+    const onResume = () => {
+      if (document.visibilityState === "visible") {
+        supabase.auth.getSession().then(({ data }) => {
+          if (data.session) supabase.auth.refreshSession().catch(() => {});
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", onResume);
+    window.addEventListener("focus", onResume);
+    return () => {
+      sub.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onResume);
+      window.removeEventListener("focus", onResume);
+    };
   }, []);
 
   const fetchRole = async (uid: string) => {
