@@ -48,8 +48,19 @@ Deno.serve(async (req) => {
     const directIds = body.user_ids ?? (body.user_id ? [body.user_id] : []);
     const isSelfOnly = directIds.length > 0 && directIds.every((id) => id === userData.user.id);
 
+    const { data: callerRoleRows, error: callerRoleErr } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userData.user.id);
+    if (callerRoleErr) return json({ error: `caller role: ${callerRoleErr.message}` }, 500);
+    const callerRoles = (callerRoleRows ?? []).map((row) => row.role);
+
     let roleIds: string[] = [];
     if (body.target_roles?.length) {
+      const canNotifyRoles = callerRoles.some((role) =>
+        ["super_admin", "dispatch_admin", "member"].includes(role)
+      );
+      if (!canNotifyRoles) return json({ error: "Forbidden" }, 403);
       const { data: roleRows, error: roleErr } = await admin
         .from("user_roles")
         .select("user_id")
@@ -59,18 +70,16 @@ Deno.serve(async (req) => {
     }
 
     if (!isSelfOnly && directIds.length) {
-      const { data: callerRoles } = await admin
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userData.user.id);
-      const canTargetUsers = (callerRoles ?? []).some((row) =>
-        ["super_admin", "dispatch_admin"].includes(row.role)
+      const canTargetUsers = callerRoles.some((role) =>
+        ["super_admin", "dispatch_admin"].includes(role)
       );
       if (!canTargetUsers) return json({ error: "Forbidden" }, 403);
     }
 
     const targetUserIds = [...new Set([...directIds, ...roleIds])];
-    if (targetUserIds.length === 0) return json({ error: "user_id or user_ids is required" }, 400);
+    if (targetUserIds.length === 0) {
+      return json({ error: "user_id, user_ids, or target_roles is required" }, 400);
+    }
 
     const payload = JSON.stringify({
       title: String(body.title ?? "Jodha Ops").slice(0, 120),
