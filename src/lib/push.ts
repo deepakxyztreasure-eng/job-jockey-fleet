@@ -116,14 +116,54 @@ export async function disablePush(): Promise<{ ok: boolean; error?: string }> {
   return { ok: true };
 }
 
-/** Fire a push to a user via the edge function. Never throws. */
+type PushResult = {
+  ok: boolean;
+  sent?: number;
+  total?: number;
+  removed?: number;
+  errors?: string[];
+  error?: string;
+};
+
+/** Fire a push to a user and return delivery diagnostics. */
 export async function sendPushToUser(
   userId: string,
   payload: { title: string; body?: string; url?: string; tag?: string },
-) {
+): Promise<PushResult> {
   try {
-    await supabase.functions.invoke("send-push", { body: { user_id: userId, ...payload } });
+    const { data, error } = await supabase.functions.invoke("send-push", {
+      body: { user_id: userId, ...payload },
+    });
+    if (error) return { ok: false, error: error.message };
+    return data as PushResult;
   } catch (e) {
     console.error("send-push", e);
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+export async function sendPushToRoles(
+  roles: Array<"super_admin" | "dispatch_admin">,
+  payload: { title: string; body?: string; url?: string; tag?: string },
+): Promise<PushResult> {
+  try {
+    const { data, error } = await supabase.functions.invoke("send-push", {
+      body: { target_roles: roles, ...payload },
+    });
+    if (error) return { ok: false, error: error.message };
+    return data as PushResult;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function testPushToSelf(): Promise<PushResult> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, error: "You must be signed in." };
+  return sendPushToUser(auth.user.id, {
+    title: "Jodha Ops test notification",
+    body: "Push notifications are working on this device.",
+    url: "/notifications",
+    tag: `push-test-${Date.now()}`,
+  });
 }

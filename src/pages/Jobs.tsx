@@ -40,7 +40,7 @@ import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { compressImage } from "@/lib/compressImage";
 import { exportJobsCSV, exportJobsXLSX } from "@/lib/exportJobs";
-import { sendPushToUser } from "@/lib/push";
+import { sendPushToRoles, sendPushToUser } from "@/lib/push";
 
 const ALL_STATUSES = [
   "pending",
@@ -359,8 +359,23 @@ export default function Jobs() {
     } else {
       payload.created_by = user!.id;
       payload.status = "pending";
-      const { error } = await supabase.from("jobs").insert(payload);
+      const { data: created, error } = await supabase.from("jobs").insert(payload).select("id,title,invoice_number").single();
       if (error) return toast.error(error.message);
+      if (created) {
+        await supabase.rpc("notify_admins", {
+          p_title: "New job created",
+          p_body: `${created.title} (Invoice ${created.invoice_number})`,
+          p_type: "job_created",
+          p_job_id: created.id,
+        });
+        const push = await sendPushToRoles(["super_admin"], {
+          title: "New job created",
+          body: `${created.title} (Invoice ${created.invoice_number})`,
+          url: "/jobs",
+          tag: `new-job-${created.id}`,
+        });
+        if (!push.ok) console.error("admin push failed", push.error);
+      }
     }
     toast.success("Saved");
     setOpen(false);

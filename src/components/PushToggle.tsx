@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Bell, BellOff } from "lucide-react";
+import { Bell, BellOff, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { disablePush, enablePush, isPushEnabled, pushSupported } from "@/lib/push";
+import { disablePush, enablePush, isPushEnabled, pushSupported, testPushToSelf } from "@/lib/push";
 
 export default function PushToggle() {
   const [enabled, setEnabled] = useState(false);
@@ -34,16 +34,37 @@ export default function PushToggle() {
     }
   };
 
+  const sendTest = async () => {
+    setBusy(true);
+    try {
+      const result = await testPushToSelf();
+      if (!result.ok) return toast.error(result.error ?? "Test notification failed");
+      if (!result.total) return toast.error("This device is not registered. Turn alerts off, then enable them again.");
+      if (!result.sent) return toast.error(result.errors?.[0] ?? "The push provider rejected the notification");
+      toast.success("Test sent — check your notifications");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <Button
-      size="sm"
-      variant={enabled ? "secondary" : "outline"}
-      disabled={busy}
-      onClick={toggle}
-      title={enabled ? "Notifications on" : "Enable notifications"}
-    >
-      {enabled ? <Bell className="h-4 w-4 sm:mr-1" /> : <BellOff className="h-4 w-4 sm:mr-1" />}
-      <span className="hidden sm:inline">{enabled ? "Alerts on" : "Enable alerts"}</span>
-    </Button>
+    <div className="flex items-center gap-1">
+      <Button
+        size="sm"
+        variant={enabled ? "secondary" : "outline"}
+        disabled={busy}
+        onClick={toggle}
+        title={enabled ? "Notifications on" : "Enable notifications"}
+      >
+        {enabled ? <Bell className="h-4 w-4 sm:mr-1" /> : <BellOff className="h-4 w-4 sm:mr-1" />}
+        <span className="hidden sm:inline">{enabled ? "Alerts on" : "Enable alerts"}</span>
+      </Button>
+      {enabled && (
+        <Button size="icon" variant="ghost" disabled={busy} onClick={sendTest} title="Send test notification">
+          <Send className="h-4 w-4" />
+          <span className="sr-only">Send test notification</span>
+        </Button>
+      )}
+    </div>
   );
 }

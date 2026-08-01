@@ -1,10 +1,17 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { z } from "npm:zod@3.25.76";
 import { sendWebPush } from "./webpush.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const BodySchema = z.object({
+  user_id: z.string().uuid().optional(),
+  user_ids: z.array(z.string().uuid()).max(100).optional(),
+  target_roles: z.array(z.enum(["super_admin", "dispatch_admin"])).max(2).optional(),
+  title: z.string().min(1).max(120).default("Jodha Ops"),
+  body: z.string().max(300).optional(),
+  url: z.string().max(200).optional(),
+  tag: z.string().max(80).optional(),
+});
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -33,12 +40,36 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
 
-    const body = await req.json().catch(() => ({}));
-    const targetUserIds: string[] = Array.isArray(body.user_ids)
-      ? body.user_ids
-      : body.user_id
-        ? [body.user_id]
-        : [];
+    const parsed = BodySchema.safeParse(await req.json().catch(() => ({})));
+    if (!parsed.success) return json({ error: parsed.error.flatten().fieldErrors }, 400);
+    const body = parsed.data;
+
+    const admin = createClient(url, service);
+    const directIds = body.user_ids ?? (body.user_id ? [body.user_id] : []);
+    const isSelfOnly = directIds.length > 0 && directIds.every((id) => id === userData.user.id);
+
+    let roleIds: string[] = [];
+    if (body.target_roles?.length) {
+      const { data: roleRows, error: roleErr } = await admin
+        .from("user_roles")
+        .select("user_id")
+        .in("role", body.target_roles);
+      if (roleErr) return json({ error: `roles: ${roleErr.message}` }, 500);
+      roleIds = (roleRows ?? []).map((row) => row.user_id);
+    }
+
+    if (!isSelfOnly && directIds.length) {
+      const { data: callerRoles } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userData.user.id);
+      const canTargetUsers = (callerRoles ?? []).some((row) =>
+        ["super_admin", "dispatch_admin"].includes(row.role)
+      );
+      if (!canTargetUsers) return json({ error: "Forbidden" }, 403);
+    }
+
+    const targetUserIds = [...new Set([...directIds, ...roleIds])];
     if (targetUserIds.length === 0) return json({ error: "user_id or user_ids is required" }, 400);
 
     const payload = JSON.stringify({
@@ -48,7 +79,6 @@ Deno.serve(async (req) => {
       tag: body.tag ? String(body.tag).slice(0, 80) : undefined,
     });
 
-    const admin = createClient(url, service);
     const { data: subs, error: subErr } = await admin
       .from("push_subscriptions")
       .select("id, endpoint, p256dh, auth")
