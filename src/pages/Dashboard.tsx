@@ -43,12 +43,20 @@ export default function Dashboard() {
     activeDrivers: drivers.filter(d => d.active).length,
   }), [jobs, drivers]);
 
+  const parseLocalDate = (dateStr: string) => {
+    if (typeof dateStr === "string" && dateStr.length === 10 && dateStr.includes("-")) {
+      const [y, m, d] = dateStr.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date(dateStr);
+  };
+
   const dailyData = useMemo(() => {
     const days = Array.from({ length: 14 }).map((_, i) => startOfDay(subDays(new Date(), 13 - i)));
     return days.map((d) => {
       const label = format(d, "MMM d");
       const dayJobs = jobs.filter((j) => {
-        const ref = j.scheduled_date ? new Date(j.scheduled_date) : new Date(j.created_at);
+        const ref = j.scheduled_date ? parseLocalDate(j.scheduled_date) : new Date(j.created_at);
         return startOfDay(ref).getTime() === d.getTime();
       });
       return {

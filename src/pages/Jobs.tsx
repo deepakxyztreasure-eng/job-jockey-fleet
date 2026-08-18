@@ -169,7 +169,6 @@ export default function Jobs() {
       supabase
         .from("jobs")
         .select("*")
-        .order("start_time", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false })
         .limit(5000),
       supabase.from("store_locations").select("id,name,address,active").order("name"),
@@ -223,6 +222,13 @@ export default function Jobs() {
       if (fTo) to = endOfDay(new Date(fTo));
     }
     const q = search.trim().toLowerCase();
+    const parseLocalDate = (dateStr: string) => {
+      if (typeof dateStr === "string" && dateStr.length === 10 && dateStr.includes("-")) {
+        const [y, m, d] = dateStr.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      }
+      return new Date(dateStr);
+    };
     return jobs.filter((j) => {
       const inHistory = (HISTORY_STATUSES as readonly string[]).includes(j.status);
       if (!historyMode && inHistory) return false;
@@ -237,7 +243,7 @@ export default function Jobs() {
       if (fLocation !== "all" && j.pickup_location_id !== fLocation) return false;
       if (from || to) {
         const d = j.scheduled_date
-          ? new Date(j.scheduled_date)
+          ? parseLocalDate(j.scheduled_date)
           : j.start_time
             ? new Date(j.start_time)
             : new Date(j.created_at);
