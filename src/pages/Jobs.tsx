@@ -389,6 +389,13 @@ export default function Jobs() {
           console.error("post-create notify failed", e);
         }
       }
+      // make sure the new job is not hidden by active filters
+      setSearch("");
+      setFStatus("all");
+      setFRange("all");
+      setFDriver("all");
+      setFLocation("all");
+      setFPendingEdit(false);
     }
     toast.success("Saved");
     setOpen(false);
