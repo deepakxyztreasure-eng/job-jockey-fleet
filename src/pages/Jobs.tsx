@@ -166,12 +166,21 @@ export default function Jobs() {
       ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
       : supabase.rpc("list_drivers_directory");
     const [jobsRes, locRes, drvRes, titlesRes] = await Promise.all([
-      supabase.from("jobs").select("*").order("start_time", { ascending: true }),
+      supabase
+        .from("jobs")
+        .select("*")
+        .order("start_time", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(5000),
       supabase.from("store_locations").select("id,name,address,active").order("name"),
       driversQuery,
       supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
     ]);
     if (drvRes.error) console.error("drivers load error", drvRes.error);
+    if (jobsRes.error) {
+      console.error("jobs load error", jobsRes.error);
+      toast.error(`Could not load jobs: ${jobsRes.error.message}`);
+    }
     const js = jobsRes.data, ls = locRes.data, ds = (drvRes.data ?? []) as any[], ts = titlesRes.data;
     const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
     const drvMap = new Map(ds.map((d: any) => [d.id, d]));
@@ -362,20 +371,31 @@ export default function Jobs() {
       const { data: created, error } = await supabase.from("jobs").insert(payload).select("id,title,invoice_number").single();
       if (error) return toast.error(error.message);
       if (created) {
-        await supabase.rpc("notify_admins", {
-          p_title: "New job created",
-          p_body: `${created.title} (Invoice ${created.invoice_number})`,
-          p_type: "job_created",
-          p_job_id: created.id,
-        });
-        const push = await sendPushToRoles(["super_admin"], {
-          title: "New job created",
-          body: `${created.title} (Invoice ${created.invoice_number})`,
-          url: "/jobs",
-          tag: `new-job-${created.id}`,
-        });
-        if (!push.ok) console.error("admin push failed", push.error);
+        try {
+          await supabase.rpc("notify_admins", {
+            p_title: "New job created",
+            p_body: `${created.title} (Invoice ${created.invoice_number})`,
+            p_type: "job_created",
+            p_job_id: created.id,
+          });
+          const push = await sendPushToRoles(["super_admin"], {
+            title: "New job created",
+            body: `${created.title} (Invoice ${created.invoice_number})`,
+            url: "/jobs",
+            tag: `new-job-${created.id}`,
+          });
+          if (!push.ok) console.error("admin push failed", push.error);
+        } catch (e) {
+          console.error("post-create notify failed", e);
+        }
       }
+      // make sure the new job is not hidden by active filters
+      setSearch("");
+      setFStatus("all");
+      setFRange("all");
+      setFDriver("all");
+      setFLocation("all");
+      setFPendingEdit(false);
     }
     toast.success("Saved");
     setOpen(false);
