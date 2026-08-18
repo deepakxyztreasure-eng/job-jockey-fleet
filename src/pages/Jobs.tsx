@@ -371,19 +371,23 @@ export default function Jobs() {
       const { data: created, error } = await supabase.from("jobs").insert(payload).select("id,title,invoice_number").single();
       if (error) return toast.error(error.message);
       if (created) {
-        await supabase.rpc("notify_admins", {
-          p_title: "New job created",
-          p_body: `${created.title} (Invoice ${created.invoice_number})`,
-          p_type: "job_created",
-          p_job_id: created.id,
-        });
-        const push = await sendPushToRoles(["super_admin"], {
-          title: "New job created",
-          body: `${created.title} (Invoice ${created.invoice_number})`,
-          url: "/jobs",
-          tag: `new-job-${created.id}`,
-        });
-        if (!push.ok) console.error("admin push failed", push.error);
+        try {
+          await supabase.rpc("notify_admins", {
+            p_title: "New job created",
+            p_body: `${created.title} (Invoice ${created.invoice_number})`,
+            p_type: "job_created",
+            p_job_id: created.id,
+          });
+          const push = await sendPushToRoles(["super_admin"], {
+            title: "New job created",
+            body: `${created.title} (Invoice ${created.invoice_number})`,
+            url: "/jobs",
+            tag: `new-job-${created.id}`,
+          });
+          if (!push.ok) console.error("admin push failed", push.error);
+        } catch (e) {
+          console.error("post-create notify failed", e);
+        }
       }
     }
     toast.success("Saved");
