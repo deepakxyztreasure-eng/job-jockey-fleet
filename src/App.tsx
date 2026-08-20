@@ -17,6 +17,7 @@ import Admin from "@/pages/Admin";
 import JobTitles from "@/pages/JobTitles";
 import CheckoutLogs from "@/pages/CheckoutLogs";
 import Notifications from "@/pages/Notifications";
+import Backup from "@/pages/Backup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
