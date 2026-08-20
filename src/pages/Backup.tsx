@@ -34,7 +34,9 @@ function stamp() {
 
 function toCSV(rows: any[]): string {
   if (!rows.length) return "";
-  const cols = Array.from(rows.reduce((s: Set<string>, r) => { Object.keys(r).forEach((k) => s.add(k)); return s; }, new Set<string>()));
+  const cols: string[] = Array.from(
+    rows.reduce((s: Set<string>, r) => { Object.keys(r).forEach((k) => s.add(k)); return s; }, new Set<string>())
+  );
   const esc = (v: any) => {
     if (v === null || v === undefined) return "";
     const s = typeof v === "object" ? JSON.stringify(v) : String(v);
