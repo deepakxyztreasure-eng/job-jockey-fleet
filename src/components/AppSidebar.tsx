@@ -24,6 +24,7 @@ export function AppSidebar() {
     { title: "Users & Roles", url: "/users", icon: ShieldCheck },
     { title: "Driver Checkout Logs", url: "/checkout-logs", icon: ClipboardList },
     { title: "Admin", url: "/admin", icon: UserCog },
+    { title: "Backup", url: "/backup", icon: DatabaseBackup },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
   const memberItems = [
