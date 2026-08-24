@@ -38,7 +38,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { compressImage } from "@/lib/compressImage";
+import { optimizeImage, formatBytes } from "@/lib/compressImage";
 import { exportJobsCSV, exportJobsXLSX } from "@/lib/exportJobs";
 import { sendPushToRoles, sendPushToUser } from "@/lib/push";
 
@@ -592,14 +592,26 @@ export default function Jobs() {
     try {
       let proofUrl: string | null = null;
       if (compFile && user) {
-        const optimized = await compressImage(compFile);
+        const result = await optimizeImage(compFile);
+        if (result.error) console.warn("Image optimization skipped:", result.error);
+        const optimized = result.file;
         const path = `${user.id}/${completeFor.id}-${Date.now()}-${optimized.name}`;
         const { error: upErr } = await supabase.storage
           .from("job-proofs")
-          .upload(path, optimized, { contentType: optimized.type });
+          .upload(path, optimized, { contentType: optimized.type, upsert: false });
         if (upErr) throw upErr;
         proofUrl = path;
+        // Delete any previously stored proof for this job so only the optimised file remains.
+        if (completeFor.proof_image_url && completeFor.proof_image_url !== path) {
+          await supabase.storage.from("job-proofs").remove([completeFor.proof_image_url]);
+        }
+        if (result.optimized) {
+          toast.success(
+            `Image optimised: ${formatBytes(result.originalSize)} → ${formatBytes(result.finalSize)}`
+          );
+        }
       }
+
       const { error } = await supabase
         .from("jobs")
         .update({
@@ -1696,7 +1708,16 @@ export default function Jobs() {
             <div>
               <Label>Proof image (optional)</Label>
               <Input type="file" accept="image/*" onChange={(e) => setCompFile(e.target.files?.[0] ?? null)} />
+              {compFile && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {compFile.name} — {formatBytes(compFile.size)}
+                  {compFile.size > 500 * 1024
+                    ? " · will be resized & compressed to 200–500 KB before upload"
+                    : " · stored as-is (under 500 KB)"}
+                </p>
+              )}
             </div>
+
             <p className="text-xs text-muted-foreground">Admin will review and approve completion.</p>
           </div>
           <DialogFooter>
