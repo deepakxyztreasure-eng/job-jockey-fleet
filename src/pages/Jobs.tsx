@@ -38,7 +38,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { compressImage } from "@/lib/compressImage";
+import { optimizeImage, formatBytes } from "@/lib/compressImage";
 import { exportJobsCSV, exportJobsXLSX } from "@/lib/exportJobs";
 import { sendPushToRoles, sendPushToUser } from "@/lib/push";
 
