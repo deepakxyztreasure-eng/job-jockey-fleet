@@ -1708,7 +1708,16 @@ export default function Jobs() {
             <div>
               <Label>Proof image (optional)</Label>
               <Input type="file" accept="image/*" onChange={(e) => setCompFile(e.target.files?.[0] ?? null)} />
+              {compFile && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {compFile.name} — {formatBytes(compFile.size)}
+                  {compFile.size > 500 * 1024
+                    ? " · will be resized & compressed to 200–500 KB before upload"
+                    : " · stored as-is (under 500 KB)"}
+                </p>
+              )}
             </div>
+
             <p className="text-xs text-muted-foreground">Admin will review and approve completion.</p>
           </div>
           <DialogFooter>
