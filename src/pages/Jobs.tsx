@@ -592,14 +592,26 @@ export default function Jobs() {
     try {
       let proofUrl: string | null = null;
       if (compFile && user) {
-        const optimized = await compressImage(compFile);
+        const result = await optimizeImage(compFile);
+        if (result.error) console.warn("Image optimization skipped:", result.error);
+        const optimized = result.file;
         const path = `${user.id}/${completeFor.id}-${Date.now()}-${optimized.name}`;
         const { error: upErr } = await supabase.storage
           .from("job-proofs")
-          .upload(path, optimized, { contentType: optimized.type });
+          .upload(path, optimized, { contentType: optimized.type, upsert: false });
         if (upErr) throw upErr;
         proofUrl = path;
+        // Delete any previously stored proof for this job so only the optimised file remains.
+        if (completeFor.proof_image_url && completeFor.proof_image_url !== path) {
+          await supabase.storage.from("job-proofs").remove([completeFor.proof_image_url]);
+        }
+        if (result.optimized) {
+          toast.success(
+            `Image optimised: ${formatBytes(result.originalSize)} → ${formatBytes(result.finalSize)}`
+          );
+        }
       }
+
       const { error } = await supabase
         .from("jobs")
         .update({
