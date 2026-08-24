@@ -1,0 +1,3 @@
+providers = ["node"]
+
+NIXPACKS_NODE_VERSION = "20"
