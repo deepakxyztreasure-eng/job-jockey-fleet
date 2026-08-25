@@ -161,16 +161,31 @@ export default function Jobs() {
   const [assignStart, setAssignStart] = useState("");
   const [assignEnd, setAssignEnd] = useState("");
 
+  const fetchAllJobs = async () => {
+    let allJobs: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+      if (error) return { data: allJobs, error };
+      if (!data || data.length === 0) break;
+      allJobs.push(...data);
+      if (data.length < pageSize) break;
+      page++;
+    }
+    return { data: allJobs, error: null };
+  };
+
   const load = async () => {
     const driversQuery = isAssigner
       ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
       : supabase.rpc("list_drivers_directory");
     const [jobsRes, locRes, drvRes, titlesRes] = await Promise.all([
-      supabase
-        .from("jobs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5000),
+      fetchAllJobs(),
       supabase.from("store_locations").select("id,name,address,active").order("name"),
       driversQuery,
       supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
@@ -395,13 +410,6 @@ export default function Jobs() {
           console.error("post-create notify failed", e);
         }
       }
-      // make sure the new job is not hidden by active filters
-      setSearch("");
-      setFStatus("all");
-      setFRange("all");
-      setFDriver("all");
-      setFLocation("all");
-      setFPendingEdit(false);
     }
     toast.success("Saved");
     setOpen(false);

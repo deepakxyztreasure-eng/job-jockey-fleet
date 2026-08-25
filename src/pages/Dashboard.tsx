@@ -18,9 +18,27 @@ export default function Dashboard() {
   const [drivers, setDrivers] = useState<any[]>([]);
 
   useEffect(() => {
+    const fetchAllJobs = async () => {
+      let allJobs: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("jobs")
+          .select("id,title,status,priority,scheduled_date,start_time,invoice_number,assigned_driver_id,created_at")
+          .order("created_at", { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        if (error || !data || data.length === 0) break;
+        allJobs.push(...data);
+        if (data.length < pageSize) break;
+        page++;
+      }
+      return { data: allJobs };
+    };
+
     const load = async () => {
       const [{ data: js }, { data: ds }] = await Promise.all([
-        supabase.from("jobs").select("id,title,status,priority,scheduled_date,start_time,invoice_number,assigned_driver_id,created_at").order("created_at", { ascending: false }),
+        fetchAllJobs(),
         supabase.rpc("list_drivers_directory"),
       ]);
       const drvMap = new Map(((ds ?? []) as any[]).map((d: any) => [d.id, { full_name: d.full_name }]));
