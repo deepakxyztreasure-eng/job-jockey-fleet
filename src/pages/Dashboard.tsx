@@ -16,41 +16,60 @@ export default function Dashboard() {
   const { role } = useAuth();
   const [jobs, setJobs] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAllJobs = async () => {
+    const load = async () => {
       try {
-        const { count } = await supabase.from("jobs").select("*", { count: "exact", head: true });
+        // Single-request first 1,000 jobs + exact count in 1 HTTP call (~100ms)
+        const [{ data: firstPage, count }, { data: ds }] = await Promise.all([
+          supabase
+            .from("jobs")
+            .select("id,title,status,priority,scheduled_date,start_time,invoice_number,assigned_driver_id,created_at", { count: "exact" })
+            .order("created_at", { ascending: false })
+            .range(0, 999),
+          supabase.rpc("list_drivers_directory"),
+        ]);
+
+        const drvMap = new Map(((ds ?? []) as any[]).map((d: any) => [d.id, { full_name: d.full_name }]));
+        const enrichedFirst = (firstPage ?? []).map((j: any) => ({
+          ...j,
+          drivers: j.assigned_driver_id ? drvMap.get(j.assigned_driver_id) ?? null : null,
+        }));
+
+        setJobs(enrichedFirst);
+        setDrivers(ds ?? []);
+        setLoading(false); // First chunk rendered on screen in ~100ms!
+
+        // Background-stream remaining chunks if total > 1000
         const total = count ?? 0;
-        const pageSize = 1000;
-        const pages = Math.ceil(total / pageSize) || 1;
-        const promises = [];
-        for (let p = 0; p < pages; p++) {
-          promises.push(
-            supabase
-              .from("jobs")
-              .select("id,title,status,priority,scheduled_date,start_time,invoice_number,assigned_driver_id,created_at")
-              .order("created_at", { ascending: false })
-              .range(p * pageSize, (p + 1) * pageSize - 1)
-          );
+        if (total > 1000) {
+          const pageSize = 1000;
+          const pages = Math.ceil(total / pageSize);
+          const bgPromises = [];
+          for (let p = 1; p < pages; p++) {
+            bgPromises.push(
+              supabase
+                .from("jobs")
+                .select("id,title,status,priority,scheduled_date,start_time,invoice_number,assigned_driver_id,created_at")
+                .order("created_at", { ascending: false })
+                .range(p * pageSize, (p + 1) * pageSize - 1)
+            );
+          }
+          const bgResults = await Promise.all(bgPromises);
+          const restJobs = bgResults.flatMap((r) => r.data ?? []);
+          const enrichedRest = restJobs.map((j: any) => ({
+            ...j,
+            drivers: j.assigned_driver_id ? drvMap.get(j.assigned_driver_id) ?? null : null,
+          }));
+          setJobs([...enrichedFirst, ...enrichedRest]);
         }
-        const results = await Promise.all(promises);
-        const allJobs = results.flatMap(r => r.data ?? []);
-        return { data: allJobs };
       } catch (e) {
-        return { data: [] };
+        console.error("dashboard load error", e);
+        setLoading(false);
       }
     };
 
-    const load = async () => {
-      const [{ data: js }, { data: ds }] = await Promise.all([
-        fetchAllJobs(),
-        supabase.rpc("list_drivers_directory"),
-      ]);
-      const drvMap = new Map(((ds ?? []) as any[]).map((d: any) => [d.id, { full_name: d.full_name }]));
-      const enriched = (js ?? []).map((j: any) => ({ ...j, drivers: j.assigned_driver_id ? drvMap.get(j.assigned_driver_id) ?? null : null }));
-      setJobs(enriched); setDrivers(ds ?? []);
-    };
     load();
     const ch = supabase.channel("dash-rt").on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, load).subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -142,9 +161,13 @@ export default function Dashboard() {
         {cards.map((c) => (
           <div key={c.label} className="stat-card !p-3 sm:!p-5">
             <div className="flex items-start justify-between">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide truncate">{c.label}</p>
-                <p className={`text-lg sm:text-2xl font-semibold mt-1 sm:mt-2 ${c.color}`}>{c.value}</p>
+                {loading ? (
+                  <div className="h-6 w-16 bg-muted animate-pulse rounded mt-2" />
+                ) : (
+                  <p className={`text-lg sm:text-2xl font-semibold mt-1 sm:mt-2 ${c.color}`}>{c.value}</p>
+                )}
               </div>
               <c.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${c.color} shrink-0`} />
             </div>

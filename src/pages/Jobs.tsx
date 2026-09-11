@@ -187,34 +187,74 @@ export default function Jobs() {
     }
   };
 
+  const [loadingJobs, setLoadingJobs] = useState(true);
+
   const load = async () => {
-    const driversQuery = isAssigner
-      ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
-      : supabase.rpc("list_drivers_directory");
-    const [jobsRes, locRes, drvRes, titlesRes] = await Promise.all([
-      fetchAllJobs(),
-      supabase.from("store_locations").select("id,name,address,active").order("name"),
-      driversQuery,
-      supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
-    ]);
-    if (drvRes.error) console.error("drivers load error", drvRes.error);
-    if (jobsRes.error) {
-      console.error("jobs load error", jobsRes.error);
-      toast.error(`Could not load jobs: ${jobsRes.error.message}`);
+    try {
+      const driversQuery = isAssigner
+        ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
+        : supabase.rpc("list_drivers_directory");
+
+      // 1. Fetch first 1,000 jobs + exact count in 1 single HTTP request (~100ms)
+      const [{ data: firstPage, count, error: firstErr }, locRes, drvRes, titlesRes] = await Promise.all([
+        supabase.from("jobs").select("*", { count: "exact" }).order("created_at", { ascending: false }).range(0, 999),
+        supabase.from("store_locations").select("id,name,address,active").order("name"),
+        driversQuery,
+        supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
+      ]);
+
+      if (firstErr) {
+        console.error("jobs load error", firstErr);
+        toast.error(`Could not load jobs: ${firstErr.message}`);
+      }
+
+      const ls = locRes.data, ds = (drvRes.data ?? []) as any[], ts = titlesRes.data;
+      const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
+      const drvMap = new Map(ds.map((d: any) => [d.id, d]));
+
+      const enrichedFirst = (firstPage ?? []).map((j: any) => ({
+        ...j,
+        store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
+        drivers: j.assigned_driver_id ? (drvMap.get(j.assigned_driver_id) ?? null) : null,
+      }));
+
+      // Render first 1,000 jobs immediately in ~100ms!
+      setJobs(enrichedFirst);
+      setLocations((ls ?? []).filter((l: any) => l.active !== false));
+      setDrivers(ds.filter((d: any) => d.active));
+      setJobTitles(((ts ?? []) as any[]).filter((t) => t.active !== false));
+      setLoadingJobs(false);
+
+      // 2. Stream remaining chunks in background if total > 1000
+      const total = count ?? 0;
+      if (total > 1000) {
+        const pageSize = 1000;
+        const pages = Math.ceil(total / pageSize);
+        const bgPromises = [];
+        for (let p = 1; p < pages; p++) {
+          bgPromises.push(
+            supabase
+              .from("jobs")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .range(p * pageSize, (p + 1) * pageSize - 1)
+          );
+        }
+        const bgResults = await Promise.all(bgPromises);
+        const restJobs = bgResults.flatMap((r) => r.data ?? []);
+        const enrichedRest = restJobs.map((j: any) => ({
+          ...j,
+          store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
+          drivers: j.assigned_driver_id ? (drvMap.get(j.assigned_driver_id) ?? null) : null,
+        }));
+        setJobs([...enrichedFirst, ...enrichedRest]);
+      }
+    } catch (e: any) {
+      console.error("load error", e);
+      setLoadingJobs(false);
     }
-    const js = jobsRes.data, ls = locRes.data, ds = (drvRes.data ?? []) as any[], ts = titlesRes.data;
-    const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
-    const drvMap = new Map(ds.map((d: any) => [d.id, d]));
-    const enriched = (js ?? []).map((j: any) => ({
-      ...j,
-      store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
-      drivers: j.assigned_driver_id ? (drvMap.get(j.assigned_driver_id) ?? null) : null,
-    }));
-    setJobs(enriched);
-    setLocations((ls ?? []).filter((l: any) => l.active !== false));
-    setDrivers(ds.filter((d: any) => d.active));
-    setJobTitles(((ts ?? []) as any[]).filter((t) => t.active !== false));
   };
+
   useEffect(() => {
     load();
     const ch = supabase
@@ -1271,12 +1311,20 @@ export default function Jobs() {
 
       {/* Mobile card list */}
       <div className="md:hidden space-y-3">
-        {filtered.length === 0 && (
+        {loadingJobs ? (
+          Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="rounded-xl border bg-card p-4 space-y-3 animate-pulse">
+              <div className="h-4 bg-muted rounded w-1/3" />
+              <div className="h-5 bg-muted rounded w-3/4" />
+              <div className="h-4 bg-muted rounded w-1/2" />
+            </div>
+          ))
+        ) : filtered.length === 0 ? (
           <div className="rounded-xl border bg-card p-6 text-center text-muted-foreground text-sm">
             No jobs match filters
           </div>
-        )}
-        {filtered.map((j) => {
+        ) : null}
+        {!loadingJobs && filtered.map((j) => {
           const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
           return (
           <div key={j.id} className={`rounded-xl border p-3 space-y-2 ${flagUnpaid ? "border-warning bg-warning/10" : "bg-card"}`}>
@@ -1453,14 +1501,23 @@ export default function Jobs() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && (
+              {loadingJobs ? (
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse">
+                    {isAdmin && <td><div className="h-4 w-4 bg-muted rounded" /></td>}
+                    <td colSpan={10}>
+                      <div className="h-6 bg-muted rounded w-full my-1" />
+                    </td>
+                  </tr>
+                ))
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="text-center text-muted-foreground py-8">
                     No jobs match filters
                   </td>
                 </tr>
-              )}
-              {filtered.map((j) => {
+              ) : null}
+              {!loadingJobs && filtered.map((j) => {
                 const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
                 return (
                 <tr key={j.id} className={flagUnpaid ? "bg-warning/10" : ""}>
