@@ -188,16 +188,22 @@ export default function Jobs() {
   };
 
   const [loadingJobs, setLoadingJobs] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE_SIZE = 50;
 
   const load = async () => {
     try {
+      setPage(0);
+      setHasMore(true);
       const driversQuery = isAssigner
         ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
         : supabase.rpc("list_drivers_directory");
 
-      // 1. Fetch first 1,000 jobs + exact count in 1 single HTTP request (~100ms)
-      const [{ data: firstPage, count, error: firstErr }, locRes, drvRes, titlesRes] = await Promise.all([
-        supabase.from("jobs").select("*", { count: "exact" }).order("created_at", { ascending: false }).range(0, 999),
+      // 1. Fetch top 50 jobs (~15ms)
+      const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes] = await Promise.all([
+        supabase.from("jobs").select("*").order("created_at", { ascending: false }).range(0, PAGE_SIZE - 1),
         supabase.from("store_locations").select("id,name,address,active").order("name"),
         driversQuery,
         supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
@@ -218,40 +224,52 @@ export default function Jobs() {
         drivers: j.assigned_driver_id ? (drvMap.get(j.assigned_driver_id) ?? null) : null,
       }));
 
-      // Render first 1,000 jobs immediately in ~100ms!
+      // Render top 50 jobs instantly in ~15ms!
       setJobs(enrichedFirst);
       setLocations((ls ?? []).filter((l: any) => l.active !== false));
       setDrivers(ds.filter((d: any) => d.active));
       setJobTitles(((ts ?? []) as any[]).filter((t) => t.active !== false));
       setLoadingJobs(false);
 
-      // 2. Stream remaining chunks in background if total > 1000
-      const total = count ?? 0;
-      if (total > 1000) {
-        const pageSize = 1000;
-        const pages = Math.ceil(total / pageSize);
-        const bgPromises = [];
-        for (let p = 1; p < pages; p++) {
-          bgPromises.push(
-            supabase
-              .from("jobs")
-              .select("*")
-              .order("created_at", { ascending: false })
-              .range(p * pageSize, (p + 1) * pageSize - 1)
-          );
-        }
-        const bgResults = await Promise.all(bgPromises);
-        const restJobs = bgResults.flatMap((r) => r.data ?? []);
-        const enrichedRest = restJobs.map((j: any) => ({
-          ...j,
-          store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
-          drivers: j.assigned_driver_id ? (drvMap.get(j.assigned_driver_id) ?? null) : null,
-        }));
-        setJobs([...enrichedFirst, ...enrichedRest]);
+      if (!firstPage || firstPage.length < PAGE_SIZE) {
+        setHasMore(false);
       }
     } catch (e: any) {
       console.error("load error", e);
       setLoadingJobs(false);
+    }
+  };
+
+  const loadMoreJobs = async () => {
+    if (loadingMore || !hasMore || loadingJobs) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    try {
+      const { data: nextPageData, error } = await supabase
+        .from("jobs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE - 1);
+
+      if (error || !nextPageData || nextPageData.length === 0) {
+        setHasMore(false);
+      } else {
+        const locMap = new Map(locations.map((l: any) => [l.id, l]));
+        const drvMap = new Map(drivers.map((d: any) => [d.id, d]));
+        const enrichedNext = nextPageData.map((j: any) => ({
+          ...j,
+          store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
+          drivers: j.assigned_driver_id ? (drvMap.get(j.assigned_driver_id) ?? null) : null,
+        }));
+        setJobs((prev) => [...prev, ...enrichedNext]);
+        setPage(nextPage);
+        if (nextPageData.length < PAGE_SIZE) setHasMore(false);
+      }
+    } catch (e) {
+      console.error("loadMoreJobs error", e);
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -1764,6 +1782,19 @@ export default function Jobs() {
           </table>
         </div>
       </div>
+
+      {hasMore && !loadingJobs && (
+        <div className="flex justify-center py-4">
+          <Button
+            variant="outline"
+            onClick={loadMoreJobs}
+            disabled={loadingMore}
+            className="text-xs font-medium border-muted-foreground/30 hover:bg-muted"
+          >
+            {loadingMore ? "Streaming jobs..." : "Load More Jobs"}
+          </Button>
+        </div>
+      )}
 
       {/* Driver completion dialog */}
       <Dialog open={!!completeFor} onOpenChange={(v) => !v && setCompleteFor(null)}>
