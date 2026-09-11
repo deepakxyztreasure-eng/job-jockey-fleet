@@ -52,9 +52,8 @@ const ALL_STATUSES = [
   "rejected",
   "issue",
   "payment_pending",
-  "closed",
 ] as const;
-const HISTORY_STATUSES = ["completed", "closed", "rejected"] as const;
+const HISTORY_STATUSES = ["completed", "rejected"] as const;
 const PAYMENT_STATUSES = ["pending", "partial", "paid"] as const;
 type DateRange = "all" | "today" | "week" | "month" | "custom";
 
@@ -204,13 +203,13 @@ export default function Jobs() {
       let jobsQuery = supabase.from("jobs").select("*");
       if (!historyMode) {
         jobsQuery = jobsQuery
-          .not("status", "in", "(completed,closed,rejected)")
+          .not("status", "in", "(completed,rejected)")
           .order("scheduled_date", { ascending: true, nullsFirst: false })
           .order("start_time", { ascending: true, nullsFirst: false })
           .order("created_at", { ascending: false });
       } else {
         jobsQuery = jobsQuery
-          .in("status", ["completed", "closed", "rejected"])
+          .in("status", ["completed", "rejected"])
           .order("created_at", { ascending: false });
       }
 
@@ -261,13 +260,13 @@ export default function Jobs() {
       let jobsQuery = supabase.from("jobs").select("*");
       if (!historyMode) {
         jobsQuery = jobsQuery
-          .not("status", "in", "(completed,closed,rejected)")
+          .not("status", "in", "(completed,rejected)")
           .order("scheduled_date", { ascending: true, nullsFirst: false })
           .order("start_time", { ascending: true, nullsFirst: false })
           .order("created_at", { ascending: false });
       } else {
         jobsQuery = jobsQuery
-          .in("status", ["completed", "closed", "rejected"])
+          .in("status", ["completed", "rejected"])
           .order("created_at", { ascending: false });
       }
 
@@ -948,7 +947,7 @@ export default function Jobs() {
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             {historyMode
-              ? "Completed, closed, and rejected jobs."
+              ? "Completed and rejected jobs."
               : isDriver
                 ? "Accept, work, and submit jobs for admin verification."
                 : isMember
