@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 // Public VAPID key (safe to ship in the client). The matching private key lives
 // in the VAPID_PRIVATE_KEY secret used by the send-push edge function.
 export const VAPID_PUBLIC_KEY =
-  "BN4GIXHdT6yOHOEmrMZOIzX1nC96YeENEYrH6-OPdPN_UrCP4STJdfp3FxCjPTywubLH-31WLa18pup6WwNnKvo";
+  "BAufeHs91CyxzcsL0wC1RJCpxNhACnQyOY1FK1bGEptxXfPR8-m0ja1Hhby29_gJdHxqowF8D_OiGxNuoHe3NjA";
 
 const SW_URL = "/push-sw.js";
 
