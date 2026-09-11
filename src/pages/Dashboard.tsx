@@ -19,21 +19,27 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchAllJobs = async () => {
-      let allJobs: any[] = [];
-      let page = 0;
-      const pageSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("jobs")
-          .select("id,title,status,priority,scheduled_date,start_time,invoice_number,assigned_driver_id,created_at")
-          .order("created_at", { ascending: false })
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-        if (error || !data || data.length === 0) break;
-        allJobs.push(...data);
-        if (data.length < pageSize) break;
-        page++;
+      try {
+        const { count } = await supabase.from("jobs").select("*", { count: "exact", head: true });
+        const total = count ?? 0;
+        const pageSize = 1000;
+        const pages = Math.ceil(total / pageSize) || 1;
+        const promises = [];
+        for (let p = 0; p < pages; p++) {
+          promises.push(
+            supabase
+              .from("jobs")
+              .select("id,title,status,priority,scheduled_date,start_time,invoice_number,assigned_driver_id,created_at")
+              .order("created_at", { ascending: false })
+              .range(p * pageSize, (p + 1) * pageSize - 1)
+          );
+        }
+        const results = await Promise.all(promises);
+        const allJobs = results.flatMap(r => r.data ?? []);
+        return { data: allJobs };
+      } catch (e) {
+        return { data: [] };
       }
-      return { data: allJobs };
     };
 
     const load = async () => {
