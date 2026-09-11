@@ -614,17 +614,23 @@ export default function Jobs() {
       });
     }
     toast.success("Driver assigned");
+    setJobs((prev) => prev.map((item) => (item.id === assignFor.id ? { ...item, assigned_driver_id: assignDriver, status: "assigned" } : item)));
     setAssignFor(null);
+    load();
   };
 
   const unassignJob = async (j: any) => {
     if (!j.assigned_driver_id) return;
     if (!confirm(`Unassign ${j.drivers?.full_name ?? "driver"} from this job? It will be put on hold.`)) return;
+    setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, assigned_driver_id: null, status: "pending" } : item)));
     const { error } = await supabase
       .from("jobs")
       .update({ assigned_driver_id: null, status: "pending" as any, start_time: j.start_time, end_time: null })
       .eq("id", j.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      load();
+      return toast.error(error.message);
+    }
     const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", j.assigned_driver_id).maybeSingle();
     if (drv?.user_id) {
       await supabase.from("notifications").insert({
@@ -636,31 +642,45 @@ export default function Jobs() {
       });
     }
     toast.success("Job unassigned (on hold)");
+    load();
   };
 
   // Driver actions
   const driverAccept = async (j: any) => {
+    setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, status: "accepted" } : item)));
     const { error } = await supabase
       .from("jobs")
       .update({ status: "accepted" as any })
       .eq("id", j.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      load();
+      return toast.error(error.message);
+    }
     toast.success("Job accepted");
   };
   const driverReject = async (j: any) => {
     if (!confirm("Reject this job?")) return;
+    setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, status: "rejected", assigned_driver_id: null } : item)));
     const { error } = await supabase
       .from("jobs")
       .update({ status: "rejected" as any, assigned_driver_id: null })
       .eq("id", j.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      load();
+      return toast.error(error.message);
+    }
     toast.success("Job rejected");
   };
   const driverStart = async (j: any) => {
     const patch: any = { status: "in_progress" as any };
     if (!j.actual_start_time) patch.actual_start_time = new Date().toISOString();
+    setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, ...patch } : item)));
     const { error } = await supabase.from("jobs").update(patch).eq("id", j.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      load();
+      return toast.error(error.message);
+    }
+    toast.success("Job started");
   };
 
   const submitCompletion = async () => {
@@ -683,21 +703,23 @@ export default function Jobs() {
           await supabase.storage.from("job-proofs").remove([completeFor.proof_image_url]);
         }
         if (result.optimized) {
-          toast.success(
-            `Image optimised: ${formatBytes(result.originalSize)} → ${formatBytes(result.finalSize)}`
-          );
+          toast.success(`Image optimized (${result.savings}% smaller)`);
         }
       }
 
+      const updateData: any = {
+        status: "completion_requested" as any,
+        completion_requested_at: new Date().toISOString(),
+        completion_notes: compNotes || null,
+        rejection_reason: null,
+      };
+      if (proofUrl) updateData.proof_image_url = proofUrl;
+
+      setJobs((prev) => prev.map((item) => (item.id === completeFor.id ? { ...item, ...updateData } : item)));
+
       const { error } = await supabase
         .from("jobs")
-        .update({
-          status: "completion_requested" as any,
-          completion_notes: compNotes || null,
-          proof_image_url: proofUrl,
-          completion_requested_at: new Date().toISOString(),
-          actual_end_time: completeFor.actual_end_time ?? new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", completeFor.id);
       if (error) throw error;
 
@@ -712,6 +734,7 @@ export default function Jobs() {
       setCompNotes("");
       setCompFile(null);
     } catch (e: any) {
+      load();
       toast.error(e.message);
     } finally {
       setUploading(false);
@@ -720,16 +743,21 @@ export default function Jobs() {
 
   const adminApprove = async () => {
     if (!verifyFor || !user) return;
+    const patchData = {
+      status: "completed" as any,
+      verified_at: new Date().toISOString(),
+      verified_by: user.id,
+      rejection_reason: null,
+    };
+    setJobs((prev) => prev.map((item) => (item.id === verifyFor.id ? { ...item, ...patchData } : item)));
     const { error } = await supabase
       .from("jobs")
-      .update({
-        status: "completed" as any,
-        verified_at: new Date().toISOString(),
-        verified_by: user.id,
-        rejection_reason: null,
-      })
+      .update(patchData)
       .eq("id", verifyFor.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      load();
+      return toast.error(error.message);
+    }
     const { data: drv } = await supabase
       .from("drivers")
       .select("user_id")
@@ -800,19 +828,30 @@ export default function Jobs() {
   const bulkDelete = async () => {
     if (selected.size === 0) return;
     if (!confirm(`Delete ${selected.size} job(s)? This cannot be undone.`)) return;
+    const selectedIds = new Set(selected);
+    setJobs((prev) => prev.filter((j) => !selectedIds.has(j.id)));
     const { error } = await supabase.from("jobs").delete().in("id", Array.from(selected));
-    if (error) return toast.error(error.message);
+    if (error) {
+      load();
+      return toast.error(error.message);
+    }
     toast.success("Deleted");
     setSelected(new Set());
+    load();
   };
   const bulkAssign = async (driverId: string) => {
     if (!driverId || selected.size === 0) return;
     const count = selected.size;
+    const selectedIds = new Set(selected);
+    setJobs((prev) => prev.map((item) => (selectedIds.has(item.id) ? { ...item, assigned_driver_id: driverId, status: "assigned" } : item)));
     const { error } = await supabase
       .from("jobs")
       .update({ assigned_driver_id: driverId, status: "assigned" as any })
       .in("id", Array.from(selected));
-    if (error) return toast.error(error.message);
+    if (error) {
+      load();
+      return toast.error(error.message);
+    }
     const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", driverId).maybeSingle();
     if (drv?.user_id) {
       const body = `${count} job${count > 1 ? "s" : ""} assigned to you`;
@@ -826,14 +865,19 @@ export default function Jobs() {
     }
     toast.success("Reassigned");
     setSelected(new Set());
+    load();
   };
 
   const updatePayment = async (j: any, status: string) => {
+    setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, payment_status: status } : item)));
     const { error } = await supabase
       .from("jobs")
       .update({ payment_status: status as any })
       .eq("id", j.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      load();
+      return toast.error(error.message);
+    }
   };
 
   return (
