@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays } from "date-fns";
 import { optimizeImage, formatBytes } from "@/lib/compressImage";
 import { exportJobsCSV, exportJobsXLSX } from "@/lib/exportJobs";
 import { sendPushToRoles, sendPushToUser } from "@/lib/push";
@@ -201,9 +201,22 @@ export default function Jobs() {
         ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
         : supabase.rpc("list_drivers_directory");
 
+      let jobsQuery = supabase.from("jobs").select("*");
+      if (!historyMode) {
+        jobsQuery = jobsQuery
+          .not("status", "in", "(completed,closed,rejected)")
+          .order("scheduled_date", { ascending: true, nullsFirst: false })
+          .order("start_time", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: false });
+      } else {
+        jobsQuery = jobsQuery
+          .in("status", ["completed", "closed", "rejected"])
+          .order("created_at", { ascending: false });
+      }
+
       // 1. Fetch top 50 jobs (~15ms)
       const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes] = await Promise.all([
-        supabase.from("jobs").select("*").order("created_at", { ascending: false }).range(0, PAGE_SIZE - 1),
+        jobsQuery.range(0, PAGE_SIZE - 1),
         supabase.from("store_locations").select("id,name,address,active").order("name"),
         driversQuery,
         supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
@@ -245,10 +258,20 @@ export default function Jobs() {
     setLoadingMore(true);
     const nextPage = page + 1;
     try {
-      const { data: nextPageData, error } = await supabase
-        .from("jobs")
-        .select("*")
-        .order("created_at", { ascending: false })
+      let jobsQuery = supabase.from("jobs").select("*");
+      if (!historyMode) {
+        jobsQuery = jobsQuery
+          .not("status", "in", "(completed,closed,rejected)")
+          .order("scheduled_date", { ascending: true, nullsFirst: false })
+          .order("start_time", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: false });
+      } else {
+        jobsQuery = jobsQuery
+          .in("status", ["completed", "closed", "rejected"])
+          .order("created_at", { ascending: false });
+      }
+
+      const { data: nextPageData, error } = await jobsQuery
         .range(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE - 1);
 
       if (error || !nextPageData || nextPageData.length === 0) {
@@ -282,7 +305,7 @@ export default function Jobs() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, []);
+  }, [historyMode]);
 
   const filtered = useMemo(() => {
     let now = new Date();
@@ -338,6 +361,42 @@ export default function Jobs() {
       return true;
     });
   }, [jobs, search, fStatus, fDriver, fLocation, fRange, fFrom, fTo, isAdmin, isDriver, drivers, user, fPendingEdit, historyMode]);
+
+  const groupedJobs = useMemo(() => {
+    const todayObj = new Date();
+    const todayStr = format(todayObj, "yyyy-MM-dd");
+    const tomorrowObj = addDays(todayObj, 1);
+    const tomorrowStr = format(tomorrowObj, "yyyy-MM-dd");
+    const dayAfterObj = addDays(todayObj, 2);
+    const dayAfterStr = format(dayAfterObj, "yyyy-MM-dd");
+
+    const groups = [
+      { id: "today", title: "Today", subtitle: format(todayObj, "EEEE, MMM d, yyyy"), badgeBg: "bg-primary text-primary-foreground", jobs: [] as any[] },
+      { id: "tomorrow", title: "Tomorrow", subtitle: format(tomorrowObj, "EEEE, MMM d, yyyy"), badgeBg: "bg-blue-600 text-white", jobs: [] as any[] },
+      { id: "dayAfterTomorrow", title: "Day After Tomorrow", subtitle: format(dayAfterObj, "EEEE, MMM d, yyyy"), badgeBg: "bg-indigo-600 text-white", jobs: [] as any[] },
+      { id: "upcoming", title: "Upcoming Schedule", subtitle: "Scheduled for future dates", badgeBg: "bg-emerald-600 text-white", jobs: [] as any[] },
+      { id: "other", title: "Past / Other", subtitle: "Completed or previous dates", badgeBg: "bg-muted text-muted-foreground", jobs: [] as any[] },
+    ];
+
+    filtered.forEach((j) => {
+      const dateVal = j.scheduled_date || (j.start_time ? j.start_time.slice(0, 10) : null);
+      if (!dateVal) {
+        groups[4].jobs.push(j);
+      } else if (dateVal === todayStr) {
+        groups[0].jobs.push(j);
+      } else if (dateVal === tomorrowStr) {
+        groups[1].jobs.push(j);
+      } else if (dateVal === dayAfterStr) {
+        groups[2].jobs.push(j);
+      } else if (dateVal > dayAfterStr) {
+        groups[3].jobs.push(j);
+      } else {
+        groups[4].jobs.push(j);
+      }
+    });
+
+    return groups.filter((g) => g.jobs.length > 0);
+  }, [filtered]);
 
   const startCreate = () => {
     setEditing(null);
@@ -1386,157 +1445,171 @@ export default function Jobs() {
             No jobs match filters
           </div>
         ) : null}
-        {!loadingJobs && filtered.map((j) => {
-          const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
-          return (
-          <div key={j.id} className={`rounded-xl border p-3 space-y-2 ${flagUnpaid ? "border-warning bg-warning/10" : "bg-card"}`}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {j.job_number != null && (
-                    <span className="text-[10px] font-mono rounded bg-muted px-1.5 py-0.5">
-                      #{String(j.job_number).padStart(4, "0")}
-                    </span>
-                  )}
-                  {j.priority === "priority" && <Flame className="h-3.5 w-3.5 text-priority shrink-0" />}
-                  <span className="font-medium text-sm">{j.title}</span>
-                  {j.cod && (
-                    <span
-                      className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${j.payment_status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}
-                    >
-                      COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
-                    </span>
-                  )}
-                  {!j.cod && !isDriver && j.show_price && j.price != null && (
-                    <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
-                      ${Number(j.price).toFixed(2)}
-                    </span>
-                  )}
-                </div>
-                {j.start_time && (
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    {format(new Date(j.start_time), "MMM d, h:mm a")}
+        {!loadingJobs && groupedJobs.map((group) => (
+          <div key={group.id} className="space-y-3 pt-1">
+            <div className="flex items-center justify-between px-1.5 py-1.5 bg-muted/40 rounded-lg border">
+              <div className="flex items-center gap-2">
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${group.badgeBg}`}>
+                  {group.title}
+                </span>
+                <span className="text-xs text-muted-foreground font-normal">{group.subtitle}</span>
+              </div>
+              <span className="text-xs font-mono bg-background border px-2 py-0.5 rounded text-muted-foreground">
+                {group.jobs.length} {group.jobs.length === 1 ? "Job" : "Jobs"}
+              </span>
+            </div>
+            {group.jobs.map((j: any) => {
+              const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
+              return (
+              <div key={j.id} className={`rounded-xl border p-3 space-y-2 ${flagUnpaid ? "border-warning bg-warning/10" : "bg-card"}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {j.job_number != null && (
+                        <span className="text-[10px] font-mono rounded bg-muted px-1.5 py-0.5">
+                          #{String(j.job_number).padStart(4, "0")}
+                        </span>
+                      )}
+                      {j.priority === "priority" && <Flame className="h-3.5 w-3.5 text-priority shrink-0" />}
+                      <span className="font-medium text-sm">{j.title}</span>
+                      {j.cod && (
+                        <span
+                          className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${j.payment_status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}
+                        >
+                          COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
+                        </span>
+                      )}
+                      {!j.cod && !isDriver && j.show_price && j.price != null && (
+                        <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
+                          ${Number(j.price).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    {j.start_time && (
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        {format(new Date(j.start_time), "MMM d, h:mm a")}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <StatusBadge status={j.status} />
-            </div>
-
-
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div>
-                <div className="text-muted-foreground">Customer</div>
-                <div className="font-medium truncate">{j.customer_name || "—"}</div>
-                {j.customer_mobile && <div className="text-muted-foreground">{j.customer_mobile}</div>}
-              </div>
-              <div>
-                <div className="text-muted-foreground">Invoice</div>
-                <div className="font-mono truncate">{j.invoice_number || "—"}</div>
-              </div>
-              <div className="col-span-2">
-                <div className="text-muted-foreground">Pickup → Delivery</div>
-                <div className="truncate">{j.store_locations?.name ?? j.pickup_address ?? "—"} → {j.delivery_address ?? "—"}</div>
-              </div>
-              {!isDriver && (
-                <div className="col-span-2">
-                  <div className="text-muted-foreground">Driver</div>
-                  <div>{j.drivers?.full_name ?? <span className="italic text-muted-foreground">Unassigned</span>}</div>
+                  <StatusBadge status={j.status} />
                 </div>
-              )}
-              {j.number_of_loads != null && (
-                <div>
-                  <div className="text-muted-foreground">Loads</div>
-                  <div>{j.number_of_loads}</div>
-                </div>
-              )}
-              {!(isDriver && !j.cod) && (
-                <div>
-                  <div className="text-muted-foreground">Payment</div>
-                  {isAdmin ? (
-                    <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
-                      <SelectTrigger className="h-7 text-[11px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PAYMENT_STATUSES.map((p) => (
-                          <SelectItem key={p} value={p}>{p}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <PaymentBadge status={j.payment_status} />
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <div className="text-muted-foreground">Customer</div>
+                    <div className="font-medium truncate">{j.customer_name || "—"}</div>
+                    {j.customer_mobile && <div className="text-muted-foreground">{j.customer_mobile}</div>}
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Invoice</div>
+                    <div className="font-mono truncate">{j.invoice_number || "—"}</div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-muted-foreground">Pickup → Delivery</div>
+                    <div className="truncate">{j.store_locations?.name ?? j.pickup_address ?? "—"} → {j.delivery_address ?? "—"}</div>
+                  </div>
+                  {!isDriver && (
+                    <div className="col-span-2">
+                      <div className="text-muted-foreground">Driver</div>
+                      <div>{j.drivers?.full_name ?? <span className="italic text-muted-foreground">Unassigned</span>}</div>
+                    </div>
+                  )}
+                  {j.number_of_loads != null && (
+                    <div>
+                      <div className="text-muted-foreground">Loads</div>
+                      <div>{j.number_of_loads}</div>
+                    </div>
+                  )}
+                  {!(isDriver && !j.cod) && (
+                    <div>
+                      <div className="text-muted-foreground">Payment</div>
+                      {isAdmin ? (
+                        <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
+                          <SelectTrigger className="h-7 text-[11px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PAYMENT_STATUSES.map((p) => (
+                              <SelectItem key={p} value={p}>{p}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <PaymentBadge status={j.payment_status} />
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t">
-              <Button size="sm" variant="outline" onClick={() => setDetailFor(j)}>
-                <Eye className="h-3.5 w-3.5 mr-1" /> Details
-              </Button>
-              {isDriver && (j.status === "assigned" || j.status === "pending") && (
-                <>
-                  <Button size="sm" onClick={() => driverAccept(j)}>Accept</Button>
-                  <Button size="sm" variant="ghost" onClick={() => driverReject(j)}>Reject</Button>
-                </>
-              )}
-              {isDriver && j.status === "accepted" && (
-                <Button size="sm" onClick={() => driverStart(j)}>Start job</Button>
-              )}
-              {isDriver && j.status === "in_progress" && (
-                <Button size="sm" onClick={() => { setCompleteFor(j); setCompNotes(""); setCompFile(null); }}>
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete
-                </Button>
-              )}
-              {(isMember && j.created_by === user?.id) || isDispatch ? (
-                <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
-                  <Pencil className="h-3.5 w-3.5 mr-1" />{j.pending_edit ? "Pending…" : "Edit"}
-                </Button>
-              ) : null}
-              {(isMember || isDispatch) && (
-                <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
-                  <Copy className="h-3.5 w-3.5 mr-1" /> Duplicate
-                </Button>
-              )}
-              {isAssigner && (
-                <>
-                  <Button size="sm" variant="outline" onClick={() => openAssign(j)}>
-                    <UserPlus className="h-3.5 w-3.5 mr-1" /> {j.assigned_driver_id ? "Reassign" : "Assign"}
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t">
+                  <Button size="sm" variant="outline" onClick={() => setDetailFor(j)}>
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Details
                   </Button>
-                  {j.assigned_driver_id && (
-                    <Button size="sm" variant="ghost" onClick={() => unassignJob(j)} title="Unassign (hold)">
-                      Hold
+                  {isDriver && (j.status === "assigned" || j.status === "pending") && (
+                    <>
+                      <Button size="sm" onClick={() => driverAccept(j)}>Accept</Button>
+                      <Button size="sm" variant="ghost" onClick={() => driverReject(j)}>Reject</Button>
+                    </>
+                  )}
+                  {isDriver && j.status === "accepted" && (
+                    <Button size="sm" onClick={() => driverStart(j)}>Start job</Button>
+                  )}
+                  {isDriver && j.status === "in_progress" && (
+                    <Button size="sm" onClick={() => { setCompleteFor(j); setCompNotes(""); setCompFile(null); }}>
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete
                     </Button>
                   )}
-                </>
-              )}
-              {isAdmin && (
-                <>
-                  {j.status === "completion_requested" && (
-                    <Button size="sm" variant="outline" onClick={() => { setVerifyFor(j); setRejectReason(""); }}>
-                      <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Verify
+                  {(isMember && j.created_by === user?.id) || isDispatch ? (
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" />{j.pending_edit ? "Pending…" : "Edit"}
+                    </Button>
+                  ) : null}
+                  {(isMember || isDispatch) && (
+                    <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
+                      <Copy className="h-3.5 w-3.5 mr-1" /> Duplicate
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                  {j.pending_edit && (
-                    <Button size="sm" variant="outline" onClick={() => setReviewEditFor(j)}>
-                      <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Review edit
-                    </Button>
+                  {isAssigner && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => openAssign(j)}>
+                        <UserPlus className="h-3.5 w-3.5 mr-1" /> {j.assigned_driver_id ? "Reassign" : "Assign"}
+                      </Button>
+                      {j.assigned_driver_id && (
+                        <Button size="sm" variant="ghost" onClick={() => unassignJob(j)} title="Unassign (hold)">
+                          Hold
+                        </Button>
+                      )}
+                    </>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => remove(j.id)}>
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
-                </>
-              )}
-            </div>
+                  {isAdmin && (
+                    <>
+                      {j.status === "completion_requested" && (
+                        <Button size="sm" variant="outline" onClick={() => { setVerifyFor(j); setRejectReason(""); }}>
+                          <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Verify
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(j)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      {j.pending_edit && (
+                        <Button size="sm" variant="outline" onClick={() => setReviewEditFor(j)}>
+                          <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Review edit
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => remove(j.id)}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+            })}
           </div>
-        )}
-        )}
+        ))}
       </div>
 
 
@@ -1579,249 +1652,266 @@ export default function Jobs() {
                   </td>
                 </tr>
               ) : null}
-              {!loadingJobs && filtered.map((j) => {
-                const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
-                return (
-                <tr key={j.id} className={flagUnpaid ? "bg-warning/10" : ""}>
-                  {isAdmin && (
-                    <td>
-                      <Checkbox checked={selected.has(j.id)} onCheckedChange={() => toggleOne(j.id)} />
-                    </td>
-                  )}
-                  <td>
-                    <div className="flex items-center gap-2">
-                      {j.job_number != null && (
-                        <span className="text-[10px] font-mono rounded bg-muted px-1.5 py-0.5">
-                          #{String(j.job_number).padStart(4, "0")}
-                        </span>
-                      )}
-                      {j.priority === "priority" && <Flame className="h-4 w-4 text-priority" />}
-                      <span className="font-medium">{j.title}</span>
-                      {j.cod && (
-                        <span
-                          className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${j.payment_status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}
-                        >
-                          COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
-                        </span>
-                      )}
-
-                      {!j.cod && !isDriver && j.show_price && j.price != null && (
-                        <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
-                          ${Number(j.price).toFixed(2)}
-                        </span>
-                      )}
-                      {j.proof_image_url && (
-                        <button onClick={() => viewProof(j.proof_image_url)} title="View proof">
-                          <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        </button>
-                      )}
-                      {flagUnpaid && (
-                        <span className="text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 bg-warning/20 text-warning font-medium">
-                          {j.payment_status}
-                        </span>
-                      )}
-                    </div>
-
-                    {j.start_time && (
-                      <div className="text-xs text-muted-foreground">
-                        {format(new Date(j.start_time), "MMM d, yyyy h:mm a")}
-                      </div>
-                    )}
-                    {j.rejection_reason && (
-                      <div className="text-xs text-destructive">Rejected: {j.rejection_reason}</div>
-                    )}
-                  </td>
-                  <td className="text-xs">
-                    <div className="font-medium">{j.customer_name || "—"}</div>
-                    <div className="text-muted-foreground">{j.customer_mobile || ""}</div>
-                  </td>
-                  <td className="text-muted-foreground">{j.store_locations?.name ?? j.pickup_address ?? "—"}</td>
-                  <td className="text-muted-foreground text-xs max-w-[220px] truncate" title={j.delivery_address ?? ""}>
-                    {j.delivery_address ?? "—"}
-                  </td>
-                  <td className="text-muted-foreground">
-                    {j.drivers?.full_name ?? <span className="italic">Unassigned</span>}
-                  </td>
-                  <td className="font-mono text-xs">{j.invoice_number}</td>
-                  <td className="text-xs">
-                    {j.actual_start_time ? (
-                      <div className="space-y-0.5">
-                        <div className="text-muted-foreground">
-                          {format(new Date(j.actual_start_time), "h:mm a")}
-                          {j.actual_end_time && <> → {format(new Date(j.actual_end_time), "h:mm a")}</>}
-                        </div>
-                        {formatDuration(j.actual_start_time, j.actual_end_time) && (
-                          <span className="inline-block text-[10px] font-medium rounded bg-success/15 text-success px-1.5 py-0.5">
-                            Completed in {formatDuration(j.actual_start_time, j.actual_end_time)}
+              {!loadingJobs && groupedJobs.map((group) => (
+                <Fragment key={group.id}>
+                  <tr className="bg-muted/50 font-semibold border-y">
+                    <td colSpan={isAdmin ? 11 : 10} className="py-2.5 px-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${group.badgeBg}`}>
+                            {group.title}
                           </span>
-                        )}
+                          <span className="text-xs text-muted-foreground font-normal">{group.subtitle}</span>
+                        </div>
+                        <span className="text-xs font-mono bg-background border px-2.5 py-0.5 rounded-full text-muted-foreground">
+                          {group.jobs.length} {group.jobs.length === 1 ? "Job" : "Jobs"}
+                        </span>
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td>
-                    {isDriver && !j.cod ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : isAdmin ? (
-                      <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
-                        <SelectTrigger className="h-8 w-[110px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PAYMENT_STATUSES.map((p) => (
-                            <SelectItem key={p} value={p}>
-                              {p}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <PaymentBadge status={j.payment_status} />
-                    )}
-                  </td>
-                  <td>
-                    <StatusBadge status={j.status} />
-                  </td>
-                  <td className="text-right whitespace-nowrap">
-                    <Button size="sm" variant="ghost" onClick={() => setDetailFor(j)} className="mr-1">
-                      <Eye className="h-4 w-4 mr-1" />
-                      Details
-                    </Button>
+                    </td>
+                  </tr>
+                  {group.jobs.map((j: any) => {
+                    const flagUnpaid = !isDriver && (j.payment_status === "pending" || j.payment_status === "partial");
+                    return (
+                    <tr key={j.id} className={flagUnpaid ? "bg-warning/10" : ""}>
+                      {isAdmin && (
+                        <td>
+                          <Checkbox checked={selected.has(j.id)} onCheckedChange={() => toggleOne(j.id)} />
+                        </td>
+                      )}
+                      <td>
+                        <div className="flex items-center gap-2">
+                          {j.job_number != null && (
+                            <span className="text-[10px] font-mono rounded bg-muted px-1.5 py-0.5">
+                              #{String(j.job_number).padStart(4, "0")}
+                            </span>
+                          )}
+                          {j.priority === "priority" && <Flame className="h-4 w-4 text-priority" />}
+                          <span className="font-medium">{j.title}</span>
+                          {j.cod && (
+                            <span
+                              className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${j.payment_status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}
+                            >
+                              COD{j.price != null ? ` $${Number(j.price).toFixed(2)}` : ""}
+                            </span>
+                          )}
 
-                    {isDriver && (j.status === "assigned" || j.status === "pending") && (
-                      <div className="inline-flex gap-1 justify-end">
-                        <Button size="sm" variant="outline" onClick={() => driverAccept(j)}>
-                          Accept
+                          {!j.cod && !isDriver && j.show_price && j.price != null && (
+                            <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
+                              ${Number(j.price).toFixed(2)}
+                            </span>
+                          )}
+                          {j.proof_image_url && (
+                            <button onClick={() => viewProof(j.proof_image_url)} title="View proof">
+                              <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          )}
+                          {flagUnpaid && (
+                            <span className="text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 bg-warning/20 text-warning font-medium">
+                              {j.payment_status}
+                            </span>
+                          )}
+                        </div>
+
+                        {j.start_time && (
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(j.start_time), "MMM d, yyyy h:mm a")}
+                          </div>
+                        )}
+                        {j.rejection_reason && (
+                          <div className="text-xs text-destructive">Rejected: {j.rejection_reason}</div>
+                        )}
+                      </td>
+                      <td className="text-xs">
+                        <div className="font-medium">{j.customer_name || "—"}</div>
+                        <div className="text-muted-foreground">{j.customer_mobile || ""}</div>
+                      </td>
+                      <td className="text-muted-foreground">{j.store_locations?.name ?? j.pickup_address ?? "—"}</td>
+                      <td className="text-muted-foreground text-xs max-w-[220px] truncate" title={j.delivery_address ?? ""}>
+                        {j.delivery_address ?? "—"}
+                      </td>
+                      <td className="text-muted-foreground">
+                        {j.drivers?.full_name ?? <span className="italic">Unassigned</span>}
+                      </td>
+                      <td className="font-mono text-xs">{j.invoice_number}</td>
+                      <td className="text-xs">
+                        {j.actual_start_time ? (
+                          <div className="space-y-0.5">
+                            <div className="text-muted-foreground">
+                              {format(new Date(j.actual_start_time), "h:mm a")}
+                              {j.actual_end_time && <> → {format(new Date(j.actual_end_time), "h:mm a")}</>}
+                            </div>
+                            <div className="font-mono text-[10px] text-muted-foreground">
+                              {formatDuration(j.actual_start_time, j.actual_end_time)}
+                            </div>
+                          </div>
+                        ) : j.start_time ? (
+                          <span className="text-muted-foreground">{format(new Date(j.start_time), "h:mm a")}</span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>
+                        {isAdmin ? (
+                          <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
+                            <SelectTrigger className="h-8 w-[110px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PAYMENT_STATUSES.map((p) => (
+                                <SelectItem key={p} value={p}>
+                                  {p}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <PaymentBadge status={j.payment_status} />
+                        )}
+                      </td>
+                      <td>
+                        <StatusBadge status={j.status} />
+                      </td>
+                      <td className="text-right whitespace-nowrap">
+                        <Button size="sm" variant="ghost" onClick={() => setDetailFor(j)} className="mr-1">
+                          <Eye className="h-4 w-4 mr-1" />
+                          Details
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => driverReject(j)}>
-                          Reject
-                        </Button>
-                      </div>
-                    )}
-                    {isDriver && j.status === "accepted" && (
-                      <Button size="sm" onClick={() => driverStart(j)}>
-                        Start job
-                      </Button>
-                    )}
-                    {isDriver && j.status === "in_progress" && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setCompleteFor(j);
-                          setCompNotes("");
-                          setCompFile(null);
-                        }}
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Mark Completed
-                      </Button>
-                    )}
-                    {isDriver && j.status === "completion_requested" && (
-                      <span className="text-xs text-priority px-2">Awaiting verification</span>
-                    )}
-                    {isDriver && j.status === "rejected" && (
-                      <span className="text-xs text-muted-foreground px-2">Rejected</span>
-                    )}
-                    {isDriver && j.status === "completed" && (
-                      <span className="text-xs text-success px-2">Completed ✓</span>
-                    )}
-                    {isAdmin && j.status === "completion_requested" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setVerifyFor(j);
-                          setRejectReason("");
-                        }}
-                      >
-                        <ShieldCheck className="h-4 w-4 mr-1" />
-                        Verify
-                      </Button>
-                    )}
-                    {((isMember && j.created_by === user?.id) || isDispatch) && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => startEdit(j)}
-                        title={j.pending_edit ? "Edit pending approval" : "Request edit"}
-                      >
-                        <Pencil className="h-4 w-4 mr-1" />
-                        {j.pending_edit ? "Pending…" : "Edit"}
-                      </Button>
-                    )}
-                    {(isMember || isDispatch) && (
-                      <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
-                        <Copy className="h-4 w-4 mr-1" />
-                        Duplicate
-                      </Button>
-                    )}
-                    {isDispatch && (
-                      <>
-                        <Button size="sm" variant="outline" onClick={() => openAssign(j)} className="ml-1">
-                          <UserPlus className="h-4 w-4 mr-1" />
-                          {j.assigned_driver_id ? "Reassign" : "Assign"}
-                        </Button>
-                        {j.assigned_driver_id && (
-                          <Button size="sm" variant="ghost" onClick={() => unassignJob(j)} title="Unassign (hold)">
-                            Hold
+
+                        {isDriver && (j.status === "assigned" || j.status === "pending") && (
+                          <div className="inline-flex gap-1 justify-end">
+                            <Button size="sm" variant="outline" onClick={() => driverAccept(j)}>
+                              Accept
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => driverReject(j)}>
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                        {isDriver && j.status === "accepted" && (
+                          <Button size="sm" onClick={() => driverStart(j)}>
+                            Start job
                           </Button>
                         )}
-                      </>
-                    )}
-                    {isAdmin && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost" className="relative">
-                            <MoreHorizontal className="h-4 w-4" />
-                            {j.pending_edit && (
-                              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-priority" />
-                            )}
+                        {isDriver && j.status === "in_progress" && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setCompleteFor(j);
+                              setCompNotes("");
+                              setCompFile(null);
+                            }}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Mark Completed
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {j.pending_edit && (
-                            <DropdownMenuItem onClick={() => setReviewEditFor(j)}>
-                              <ShieldCheck className="h-4 w-4 mr-2" />
-                              Review pending edit
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => openAssign(j)}>
-                            <UserPlus className="h-4 w-4 mr-2" />
-                            {j.assigned_driver_id ? "Reassign driver" : "Assign driver"}
-                          </DropdownMenuItem>
-                          {j.assigned_driver_id && (
-                            <DropdownMenuItem onClick={() => unassignJob(j)}>
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Unassign (hold)
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => startEdit(j)}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => duplicate(j)}>
-                            <Copy className="h-4 w-4 mr-2" />
+                        )}
+                        {isDriver && j.status === "completion_requested" && (
+                          <span className="text-xs text-priority px-2">Awaiting verification</span>
+                        )}
+                        {isDriver && j.status === "rejected" && (
+                          <span className="text-xs text-muted-foreground px-2">Rejected</span>
+                        )}
+                        {isDriver && j.status === "completed" && (
+                          <span className="text-xs text-success px-2">Completed ✓</span>
+                        )}
+                        {isAdmin && j.status === "completion_requested" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setVerifyFor(j);
+                              setRejectReason("");
+                            }}
+                          >
+                            <ShieldCheck className="h-4 w-4 mr-1" />
+                            Verify
+                          </Button>
+                        )}
+                        {((isMember && j.created_by === user?.id) || isDispatch) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEdit(j)}
+                            title={j.pending_edit ? "Edit pending approval" : "Request edit"}
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            {j.pending_edit ? "Pending…" : "Edit"}
+                          </Button>
+                        )}
+                        {(isMember || isDispatch) && (
+                          <Button size="sm" variant="ghost" onClick={() => duplicate(j)} title="Duplicate">
+                            <Copy className="h-4 w-4 mr-1" />
                             Duplicate
-                          </DropdownMenuItem>
-                          {j.proof_image_url && (
-                            <DropdownMenuItem onClick={() => viewProof(j.proof_image_url)}>
-                              <ImageIcon className="h-4 w-4 mr-2" />
-                              View proof
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => remove(j.id)} className="text-destructive">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </td>
-                </tr>
-                );
-              })}
+                          </Button>
+                        )}
+                        {isDispatch && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => openAssign(j)} className="ml-1">
+                              <UserPlus className="h-4 w-4 mr-1" />
+                              {j.assigned_driver_id ? "Reassign" : "Assign"}
+                            </Button>
+                            {j.assigned_driver_id && (
+                              <Button size="sm" variant="ghost" onClick={() => unassignJob(j)} title="Unassign (hold)">
+                                Hold
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {isAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="icon" variant="ghost" className="relative">
+                                <MoreHorizontal className="h-4 w-4" />
+                                {j.pending_edit && (
+                                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-priority" />
+                                )}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {j.pending_edit && (
+                                <DropdownMenuItem onClick={() => setReviewEditFor(j)}>
+                                  <ShieldCheck className="h-4 w-4 mr-2" />
+                                  Review pending edit
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => openAssign(j)}>
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                {j.assigned_driver_id ? "Reassign driver" : "Assign driver"}
+                              </DropdownMenuItem>
+                              {j.assigned_driver_id && (
+                                <DropdownMenuItem onClick={() => unassignJob(j)}>
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Unassign (hold)
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => startEdit(j)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => duplicate(j)}>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Duplicate
+                              </DropdownMenuItem>
+                              {j.proof_image_url && (
+                                <DropdownMenuItem onClick={() => viewProof(j.proof_image_url)}>
+                                  <ImageIcon className="h-4 w-4 mr-2" />
+                                  View proof
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => remove(j.id)} className="text-destructive">
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </td>
+                    </tr>
+                    );
+                  })}
+                </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
