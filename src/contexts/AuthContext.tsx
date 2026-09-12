@@ -103,10 +103,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ? "super_admin"
       : roles.includes("dispatch_admin")
         ? "dispatch_admin"
-        : roles.includes("member")
-          ? "member"
-          : roles.includes("driver")
-            ? "driver"
+        : roles.includes("driver")
+          ? "driver"
+          : roles.includes("member")
+            ? "member"
             : null;
     setRole(r);
     setLoading(false);

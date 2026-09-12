@@ -121,6 +121,21 @@ export default function Jobs() {
   const [jobTitles, setJobTitles] = useState<{ id: string; name: string }[]>([]);
   const titleNames = useMemo(() => jobTitles.map((t) => t.name), [jobTitles]);
 
+  const customerOptions = useMemo(() => {
+    const map = new Map<string, { name: string; mobile: string; address: string }>();
+    jobs.forEach((j) => {
+      const name = (j.customer_name || "").trim();
+      const mobile = (j.customer_mobile || "").trim();
+      const address = (j.delivery_address || "").trim();
+      if (!name && !mobile) return;
+      const key = `${name.toLowerCase()}||${mobile.toLowerCase()}`;
+      if (!map.has(key)) {
+        map.set(key, { name: name || "Customer", mobile, address });
+      }
+    });
+    return Array.from(map.values());
+  }, [jobs]);
+
   const [locations, setLocations] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -746,19 +761,22 @@ export default function Jobs() {
     setUploading(true);
     try {
       let proofUrl: string | null = null;
-      if (compFile && user) {
+      if (compFile) {
+        if (!user) throw new Error("Authentication required to upload proof photo");
         const result = await optimizeImage(compFile);
         if (result.error) console.warn("Image optimization skipped:", result.error);
         const optimized = result.file;
-        const path = `${user.id}/${completeFor.id}-${Date.now()}-${optimized.name}`;
+        const safeName = (optimized.name || "photo.jpg").replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${user.id}/${completeFor.id}-${Date.now()}-${safeName}`;
         const { error: upErr } = await supabase.storage
           .from("job-proofs")
-          .upload(path, optimized, { contentType: optimized.type, upsert: false });
+          .upload(path, optimized, { contentType: optimized.type || "image/jpeg", upsert: true });
         if (upErr) throw upErr;
         proofUrl = path;
         // Delete any previously stored proof for this job so only the optimised file remains.
         if (completeFor.proof_image_url && completeFor.proof_image_url !== path) {
-          await supabase.storage.from("job-proofs").remove([completeFor.proof_image_url]);
+          const oldClean = completeFor.proof_image_url.replace(/^job-proofs\//, "").replace(/^.*\/storage\/v1\/object\/public\/job-proofs\//, "");
+          await supabase.storage.from("job-proofs").remove([oldClean]).catch(() => {});
         }
         if (result.optimized) {
           toast.success(`Image optimized (${result.savings}% smaller)`);
@@ -864,7 +882,10 @@ export default function Jobs() {
   };
 
   const viewProof = async (path: string) => {
-    const { data } = await supabase.storage.from("job-proofs").createSignedUrl(path, 60 * 5);
+    if (!path) return;
+    const cleanPath = path.replace(/^job-proofs\//, "").replace(/^.*\/storage\/v1\/object\/public\/job-proofs\//, "");
+    const { data, error } = await supabase.storage.from("job-proofs").createSignedUrl(cleanPath, 60 * 5);
+    if (error) return toast.error(`Could not open image: ${error.message}`);
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   };
 
@@ -1128,13 +1149,60 @@ export default function Jobs() {
                       </div>
                     </div>
 
+                    {customerOptions.length > 0 && (
+                      <div className="sm:col-span-2 bg-muted/40 p-2.5 rounded-lg border">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <span>🔍</span> Search & Autofill Previous Customer
+                          </Label>
+                        </div>
+                        <Select
+                          onValueChange={(val) => {
+                            const selectedCust = customerOptions.find((c) => `${c.name}||${c.mobile}` === val);
+                            if (selectedCust) {
+                              setForm((prev: any) => ({
+                                ...prev,
+                                customer_name: selectedCust.name,
+                                customer_mobile: selectedCust.mobile,
+                                delivery_address: selectedCust.address || prev.delivery_address,
+                              }));
+                              toast.success(`Autofilled details for ${selectedCust.name}`);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-9 bg-background">
+                            <SelectValue placeholder="Search or select a previous customer…" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            {customerOptions.map((c, idx) => (
+                              <SelectItem key={idx} value={`${c.name}||${c.mobile}`}>
+                                <div className="flex flex-col text-left">
+                                  <span className="font-medium text-sm">{c.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {c.mobile ? `📱 ${c.mobile}` : "No phone"} {c.address ? `• 📍 ${c.address}` : ""}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
                     <div>
                       <Label>Customer name</Label>
                       <Input
                         value={form.customer_name}
                         onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
                         maxLength={120}
+                        placeholder="e.g. John Doe"
+                        list="previous-customer-names"
                       />
+                      <datalist id="previous-customer-names">
+                        {customerOptions.map((c, i) => (
+                          <option key={i} value={c.name} />
+                        ))}
+                      </datalist>
                     </div>
                     <div>
                       <Label>Mobile number</Label>
@@ -1142,7 +1210,13 @@ export default function Jobs() {
                         value={form.customer_mobile}
                         onChange={(e) => setForm({ ...form, customer_mobile: e.target.value })}
                         placeholder="+1 555 0100"
+                        list="previous-customer-mobiles"
                       />
+                      <datalist id="previous-customer-mobiles">
+                        {customerOptions.map((c, i) => (
+                          <option key={i} value={c.mobile} />
+                        ))}
+                      </datalist>
                     </div>
                     <div className="sm:col-span-2 grid grid-cols-2 gap-3">
                       <div>
