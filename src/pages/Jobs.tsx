@@ -125,6 +125,10 @@ export default function Jobs() {
   // Bulk selection state
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Creator filter states
+  const [creators, setCreators] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [fCreator, setFCreator] = useState<string>("all");
+
   // Filter states
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState<string>("all");
@@ -261,13 +265,14 @@ export default function Jobs() {
       }
 
       // 1. Fetch top 50 jobs (~15ms), settings & permissions
-      const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes, settingsRes, permRes] = await Promise.all([
+      const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes, settingsRes, permRes, profsRes] = await Promise.all([
         jobsQuery.range(0, PAGE_SIZE - 1),
         supabase.from("store_locations").select("id,name,address,active").order("name"),
         driversQuery,
         supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
         supabase.from("app_settings").select("key, value"),
         user ? supabase.from("user_permissions").select("can_direct_edit, can_direct_complete_invoice, can_assign_jobs").eq("user_id", user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+        isAdmin ? supabase.from("profiles").select("id, full_name, email").order("full_name") : Promise.resolve({ data: [], error: null }),
       ]);
 
       if (settingsRes.data) {
@@ -294,14 +299,20 @@ export default function Jobs() {
         toast.error(`Could not load jobs: ${firstErr.message}`);
       }
 
-      const ls = locRes.data, ds = (drvRes.data ?? []) as any[], ts = titlesRes.data;
+      const ls = locRes.data, ds = (drvRes.data ?? []) as any[], ts = titlesRes.data, profs = (profsRes?.data ?? []) as any[];
       const locMap = new Map((ls ?? []).map((l: any) => [l.id, l]));
       const drvMap = new Map(ds.map((d: any) => [d.id, d]));
+      const profMap = new Map(profs.map((p: any) => [p.id, p]));
+
+      if (isAdmin && profs.length > 0) {
+        setCreators(profs.map((p: any) => ({ id: p.id, name: p.full_name || p.email || "Member", email: p.email })));
+      }
 
       const enrichedFirst = (firstPage ?? []).map((j: any) => ({
         ...j,
         store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
         drivers: j.assigned_driver_id ? (drvMap.get(j.assigned_driver_id) ?? null) : null,
+        creator: j.created_by ? (profMap.get(j.created_by) ?? null) : null,
       }));
 
       // Render top 50 jobs instantly in ~15ms!
@@ -414,6 +425,7 @@ export default function Jobs() {
       }
       if (fStatus !== "all" && j.status !== fStatus) return false;
       if (isAdmin && fDriver !== "all" && j.assigned_driver_id !== fDriver) return false;
+      if (isAdmin && fCreator !== "all" && j.created_by !== fCreator) return false;
       if (fLocation !== "all" && j.pickup_location_id !== fLocation) return false;
       if (from || to) {
         const d = j.scheduled_date
@@ -427,7 +439,7 @@ export default function Jobs() {
       if (isAdmin && fPendingEdit && !j.pending_edit) return false;
       return true;
     });
-  }, [jobs, search, fStatus, fDriver, fLocation, fRange, fFrom, fTo, isAdmin, isDriver, drivers, user, fPendingEdit, historyMode]);
+  }, [jobs, search, fStatus, fDriver, fCreator, fLocation, fRange, fFrom, fTo, isAdmin, isDriver, drivers, user, fPendingEdit, historyMode]);
 
   const groupedJobs = useMemo(() => {
     const todayObj = new Date();
@@ -1469,6 +1481,21 @@ export default function Jobs() {
               </SelectContent>
             </Select>
           )}
+          {isAdmin && (
+            <Select value={fCreator} onValueChange={setFCreator}>
+              <SelectTrigger>
+                <SelectValue placeholder="Created By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All creators</SelectItem>
+                {creators.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={fLocation} onValueChange={setFLocation}>
             <SelectTrigger>
               <SelectValue placeholder="Location" />
@@ -1656,6 +1683,12 @@ export default function Jobs() {
                     <div className="col-span-2">
                       <div className="text-muted-foreground">Driver</div>
                       <div>{j.drivers?.full_name ?? <span className="italic text-muted-foreground">Unassigned</span>}</div>
+                    </div>
+                  )}
+                  {isAdmin && j.creator?.full_name && (
+                    <div className="col-span-2">
+                      <div className="text-muted-foreground">Created By</div>
+                      <div className="font-medium text-foreground">{j.creator.full_name}</div>
                     </div>
                   )}
                   {j.number_of_loads != null && (
