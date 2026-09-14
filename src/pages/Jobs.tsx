@@ -122,6 +122,9 @@ export default function Jobs() {
   const [jobTitles, setJobTitles] = useState<{ id: string; name: string }[]>([]);
   const titleNames = useMemo(() => jobTitles.map((t) => t.name), [jobTitles]);
 
+  // Bulk selection state
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
   // Filter states
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState<string>("all");
