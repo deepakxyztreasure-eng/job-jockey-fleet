@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Shield, Settings2, FileText, Banknote, Edit3 } from "lucide-react";
+import { Shield, Settings2, FileText, Banknote, Edit3, Truck } from "lucide-react";
 
 interface MemberRow { id: string; full_name: string|null; email: string|null; phone: string|null }
 
@@ -18,6 +18,7 @@ export default function Admin() {
   const [directEdit, setDirectEdit] = useState(true);
   const [directInvoiceComp, setDirectInvoiceComp] = useState(true);
   const [requireCashApproval, setRequireCashApproval] = useState(true);
+  const [memberJobAssign, setMemberJobAssign] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
@@ -35,6 +36,7 @@ export default function Admin() {
           if (s.key === "allow_direct_job_edit") setDirectEdit(parseBool(s.value));
           if (s.key === "allow_direct_invoice_completion") setDirectInvoiceComp(parseBool(s.value));
           if (s.key === "require_cash_job_approval") setRequireCashApproval(parseBool(s.value));
+          if (s.key === "allow_member_job_assign") setMemberJobAssign(parseBool(s.value));
         });
       }
 
@@ -171,6 +173,31 @@ export default function Admin() {
               />
               <span className="text-xs font-semibold min-w-[50px]">
                 {requireCashApproval ? "Enabled" : "Disabled"}
+              </span>
+            </div>
+          </div>
+
+          {/* Feature 4: Driver Assignment */}
+          <div className="flex items-center justify-between pt-4 gap-4">
+            <div className="space-y-1 max-w-2xl">
+              <div className="flex items-center gap-2 font-medium">
+                <Truck className="h-4 w-4 text-primary" /> Driver Assignment for Staff Admins
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When <strong>Enabled</strong>, Staff Admins (`member` role) can assign drivers to jobs, reassign drivers, and manage driver holds.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={memberJobAssign}
+                disabled={savingKey === "allow_member_job_assign"}
+                onCheckedChange={(val) => {
+                  setMemberJobAssign(val);
+                  updateSetting("allow_member_job_assign", val, "Driver Assignment for Staff Admins");
+                }}
+              />
+              <span className="text-xs font-semibold min-w-[50px]">
+                {memberJobAssign ? "Enabled" : "Disabled"}
               </span>
             </div>
           </div>

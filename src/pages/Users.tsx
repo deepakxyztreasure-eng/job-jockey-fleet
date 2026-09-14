@@ -10,9 +10,18 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 type Role = "super_admin" | "dispatch_admin" | "member" | "driver";
-interface Row { id: string; full_name: string|null; email: string|null; phone: string|null; role: Role | null; can_direct_edit?: boolean | null }
+interface Row { id: string; full_name: string|null; email: string|null; phone: string|null; role: Role | null; can_direct_edit?: boolean | null; can_assign_jobs?: boolean | null }
 
-const blank = { id: "", full_name: "", email: "", phone: "", password: "", role: "member" as Role, can_direct_edit: "inherit" as "inherit" | "true" | "false" };
+const blank = {
+  id: "",
+  full_name: "",
+  email: "",
+  phone: "",
+  password: "",
+  role: "member" as Role,
+  can_direct_edit: "inherit" as "inherit" | "true" | "false",
+  can_assign_jobs: "inherit" as "inherit" | "true" | "false",
+};
 
 export default function Users() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -24,21 +33,25 @@ export default function Users() {
   const load = async () => {
     const { data: profiles } = await supabase.from("profiles").select("id, full_name, email, phone");
     const { data: roles } = await supabase.from("user_roles").select("user_id, role");
-    const { data: perms } = await supabase.from("user_permissions").select("user_id, can_direct_edit");
+    const { data: perms } = await supabase.from("user_permissions").select("user_id, can_direct_edit, can_assign_jobs");
     const roleMap = new Map<string, Role>();
     (roles ?? []).forEach((r: any) => {
       const cur = roleMap.get(r.user_id);
       const rank: Record<Role, number> = { super_admin: 1, dispatch_admin: 2, member: 3, driver: 4 };
       if (!cur || rank[r.role as Role] < rank[cur]) roleMap.set(r.user_id, r.role);
     });
-    const permMap = new Map<string, boolean | null>();
-    (perms ?? []).forEach((p: any) => permMap.set(p.user_id, p.can_direct_edit));
+    const permMap = new Map<string, { can_direct_edit: boolean | null; can_assign_jobs: boolean | null }>();
+    (perms ?? []).forEach((p: any) => permMap.set(p.user_id, { can_direct_edit: p.can_direct_edit, can_assign_jobs: p.can_assign_jobs }));
 
-    setRows((profiles ?? []).map((p: any) => ({
-      ...p,
-      role: roleMap.get(p.id) ?? null,
-      can_direct_edit: permMap.get(p.id) ?? null,
-    })));
+    setRows((profiles ?? []).map((p: any) => {
+      const pData = permMap.get(p.id);
+      return {
+        ...p,
+        role: roleMap.get(p.id) ?? null,
+        can_direct_edit: pData?.can_direct_edit ?? null,
+        can_assign_jobs: pData?.can_assign_jobs ?? null,
+      };
+    }));
   };
   useEffect(() => { load(); }, []);
 
@@ -54,7 +67,17 @@ export default function Users() {
   const startEdit = (r: Row) => {
     setEditing(r);
     const permStr = r.can_direct_edit === true ? "true" : r.can_direct_edit === false ? "false" : "inherit";
-    setForm({ id: r.id, full_name: r.full_name ?? "", email: r.email ?? "", phone: r.phone ?? "", password: "", role: (r.role ?? "member") as Role, can_direct_edit: permStr });
+    const assignStr = r.can_assign_jobs === true ? "true" : r.can_assign_jobs === false ? "false" : "inherit";
+    setForm({
+      id: r.id,
+      full_name: r.full_name ?? "",
+      email: r.email ?? "",
+      phone: r.phone ?? "",
+      password: "",
+      role: (r.role ?? "member") as Role,
+      can_direct_edit: permStr,
+      can_assign_jobs: assignStr,
+    });
     setOpen(true);
   };
 
@@ -78,12 +101,14 @@ export default function Users() {
         toast.success(form.password ? "Updated & password reset" : "Updated");
       }
 
-      // Save user-wise direct edit permission override
+      // Save user-wise direct edit & job assign permission overrides
       if (targetUserId && (form.role === "member" || form.role === "dispatch_admin")) {
-        const val = form.can_direct_edit === "true" ? true : form.can_direct_edit === "false" ? false : null;
+        const valEdit = form.can_direct_edit === "true" ? true : form.can_direct_edit === "false" ? false : null;
+        const valAssign = form.can_assign_jobs === "true" ? true : form.can_assign_jobs === "false" ? false : null;
         await supabase.from("user_permissions").upsert({
           user_id: targetUserId,
-          can_direct_edit: val,
+          can_direct_edit: valEdit,
+          can_assign_jobs: valAssign,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
       }
@@ -130,20 +155,37 @@ export default function Users() {
               </div>
 
               {(form.role === "member" || form.role === "dispatch_admin") && (
-                <div>
-                  <Label>Direct Job Editing Permission</Label>
-                  <Select value={form.can_direct_edit} onValueChange={(v: any)=>setForm({...form, can_direct_edit: v})}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="inherit">Inherit Global Setting (Recommended)</SelectItem>
-                      <SelectItem value="true">Force Enable (Direct Edit Without Approval)</SelectItem>
-                      <SelectItem value="false">Force Disable (Require SuperAdmin Approval)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Controls whether this Staff Admin can save job changes directly without SuperAdmin approval.
-                  </p>
-                </div>
+                <>
+                  <div>
+                    <Label>Direct Job Editing Permission</Label>
+                    <Select value={form.can_direct_edit} onValueChange={(v: any)=>setForm({...form, can_direct_edit: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inherit">Inherit Global Setting (Recommended)</SelectItem>
+                        <SelectItem value="true">Force Enable (Direct Edit Without Approval)</SelectItem>
+                        <SelectItem value="false">Force Disable (Require SuperAdmin Approval)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Controls whether this Staff Admin can save job changes directly without SuperAdmin approval.
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label>Driver Assignment Permission</Label>
+                    <Select value={form.can_assign_jobs} onValueChange={(v: any)=>setForm({...form, can_assign_jobs: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inherit">Inherit Global Setting (Recommended)</SelectItem>
+                        <SelectItem value="true">Force Enable (Allow Driver Assignment)</SelectItem>
+                        <SelectItem value="false">Force Disable (Hide Driver Assignment)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Controls whether this Staff Admin can assign drivers, reassign drivers, and manage driver holds.
+                    </p>
+                  </div>
+                </>
               )}
             </div>
             <DialogFooter>

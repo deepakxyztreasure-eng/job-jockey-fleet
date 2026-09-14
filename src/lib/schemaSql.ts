@@ -331,7 +331,8 @@ create table if not exists public.app_settings (
 insert into public.app_settings (key, value, description) values
   ('allow_direct_job_edit', 'true'::jsonb, 'Allow Staff Admins (member) and Dispatch Admins to edit jobs directly without SuperAdmin approval'),
   ('allow_direct_invoice_completion', 'true'::jsonb, 'Allow direct completion for Invoice jobs by Staff Admins'),
-  ('require_cash_job_approval', 'true'::jsonb, 'Require SuperAdmin approval for Cash (COD) job completions')
+  ('require_cash_job_approval', 'true'::jsonb, 'Require SuperAdmin approval for Cash (COD) job completions'),
+  ('allow_member_job_assign', 'true'::jsonb, 'Allow Staff Admins (member) to assign and reassign drivers to jobs')
 on conflict (key) do nothing;
 
 grant select on public.app_settings to authenticated;
@@ -346,6 +347,7 @@ create table if not exists public.user_permissions (
   user_id uuid primary key references auth.users(id) on delete cascade,
   can_direct_edit boolean default null,
   can_direct_complete_invoice boolean default null,
+  can_assign_jobs boolean default null,
   updated_at timestamptz default now()
 );
 

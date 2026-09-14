@@ -113,7 +113,7 @@ export default function Jobs() {
   const historyMode = pathname.startsWith("/history");
   const isAdmin = role === "super_admin";
   const isDispatch = role === "dispatch_admin";
-  const isAssigner = isAdmin || isDispatch; // can assign/unassign drivers
+  const isAssigner = isAdmin || isDispatch || canAssign; // can assign/unassign drivers
   const isMember = role === "member";
   const isDriver = role === "driver";
 
@@ -159,10 +159,12 @@ export default function Jobs() {
     allow_direct_job_edit: true,
     allow_direct_invoice_completion: true,
     require_cash_job_approval: true,
+    allow_member_job_assign: true,
   });
-  const [userPerm, setUserPerm] = useState<{ can_direct_edit: boolean | null; can_direct_complete_invoice: boolean | null }>({
+  const [userPerm, setUserPerm] = useState<{ can_direct_edit: boolean | null; can_direct_complete_invoice: boolean | null; can_assign_jobs: boolean | null }>({
     can_direct_edit: null,
     can_direct_complete_invoice: null,
+    can_assign_jobs: null,
   });
 
   const canDirectEdit = useMemo(() => {
@@ -172,6 +174,14 @@ export default function Jobs() {
     }
     return appSettings.allow_direct_job_edit;
   }, [isAdmin, userPerm, appSettings]);
+
+  const canAssign = useMemo(() => {
+    if (isAdmin || isDispatch) return true;
+    if (userPerm?.can_assign_jobs !== null && userPerm?.can_assign_jobs !== undefined) {
+      return userPerm.can_assign_jobs;
+    }
+    return appSettings.allow_member_job_assign;
+  }, [isAdmin, isDispatch, userPerm, appSettings]);
 
   // Driver completion modal
   const [completeFor, setCompleteFor] = useState<any | null>(null);
@@ -254,7 +264,7 @@ export default function Jobs() {
         driversQuery,
         supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
         supabase.from("app_settings").select("key, value"),
-        user ? supabase.from("user_permissions").select("can_direct_edit, can_direct_complete_invoice").eq("user_id", user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+        user ? supabase.from("user_permissions").select("can_direct_edit, can_direct_complete_invoice, can_assign_jobs").eq("user_id", user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
 
       if (settingsRes.data) {
@@ -272,6 +282,7 @@ export default function Jobs() {
         setUserPerm({
           can_direct_edit: permRes.data.can_direct_edit ?? null,
           can_direct_complete_invoice: permRes.data.can_direct_complete_invoice ?? null,
+          can_assign_jobs: permRes.data.can_assign_jobs ?? null,
         });
       }
 
@@ -1974,7 +1985,7 @@ export default function Jobs() {
                             Duplicate
                           </Button>
                         )}
-                        {isDispatch && (
+                        {(isDispatch || canAssign) && (
                           <>
                             <Button size="sm" variant="outline" onClick={() => openAssign(j)} className="ml-1">
                               <UserPlus className="h-4 w-4 mr-1" />
