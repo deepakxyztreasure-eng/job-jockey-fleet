@@ -561,7 +561,13 @@ export default function Jobs() {
         load();
         return;
       }
-      const { error } = await supabase.from("jobs").update(payload).eq("id", editing.id);
+      const directPayload = {
+        ...payload,
+        pending_edit: null,
+        pending_edit_by: null,
+        pending_edit_at: null,
+      };
+      const { error } = await supabase.from("jobs").update(directPayload).eq("id", editing.id);
       if (error) return toast.error(error.message);
       toast.success("Job updated successfully");
     } else {
