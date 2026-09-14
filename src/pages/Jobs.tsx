@@ -264,6 +264,18 @@ export default function Jobs() {
           .order("created_at", { ascending: false });
       }
 
+      const creatorsQuery = isAdmin
+        ? (async () => {
+            const { data: roles } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .in("role", ["super_admin", "dispatch_admin", "member"]);
+            const ids = (roles ?? []).map((r: any) => r.user_id);
+            if (ids.length === 0) return { data: [], error: null };
+            return supabase.from("profiles").select("id, full_name, email").in("id", ids).order("full_name");
+          })()
+        : Promise.resolve({ data: [], error: null });
+
       // 1. Fetch top 50 jobs (~15ms), settings & permissions
       const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes, settingsRes, permRes, profsRes] = await Promise.all([
         jobsQuery.range(0, PAGE_SIZE - 1),
@@ -272,7 +284,7 @@ export default function Jobs() {
         supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
         supabase.from("app_settings").select("key, value"),
         user ? supabase.from("user_permissions").select("can_direct_edit, can_direct_complete_invoice, can_assign_jobs").eq("user_id", user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-        isAdmin ? supabase.from("profiles").select("id, full_name, email").order("full_name") : Promise.resolve({ data: [], error: null }),
+        creatorsQuery,
       ]);
 
       if (settingsRes.data) {
