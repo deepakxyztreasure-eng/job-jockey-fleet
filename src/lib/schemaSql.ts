@@ -282,6 +282,8 @@ create policy "jobs_update_admin" on public.jobs for update to authenticated
   using (public.has_role(auth.uid(),'super_admin')) with check (public.has_role(auth.uid(),'super_admin'));
 create policy "jobs_update_dispatch" on public.jobs for update to authenticated
   using (public.has_role(auth.uid(),'dispatch_admin')) with check (public.has_role(auth.uid(),'dispatch_admin'));
+create policy "jobs_update_member" on public.jobs for update to authenticated
+  using (public.has_role(auth.uid(),'member')) with check (public.has_role(auth.uid(),'member'));
 create policy "jobs_update_creator" on public.jobs for update to authenticated
   using (created_by = auth.uid()) with check (created_by = auth.uid());
 create policy "jobs_update_driver" on public.jobs for update to authenticated

@@ -259,7 +259,13 @@ export default function Jobs() {
 
       if (settingsRes.data) {
         const stObj: any = {};
-        settingsRes.data.forEach((s: any) => { stObj[s.key] = Boolean(s.value); });
+        const parseBool = (v: any) => {
+          if (typeof v === "boolean") return v;
+          if (typeof v === "string") return v.toLowerCase() === "true" || v === "1";
+          if (typeof v === "number") return v === 1;
+          return Boolean(v);
+        };
+        settingsRes.data.forEach((s: any) => { stObj[s.key] = parseBool(s.value); });
         setAppSettings((prev) => ({ ...prev, ...stObj }));
       }
       if (permRes?.data) {

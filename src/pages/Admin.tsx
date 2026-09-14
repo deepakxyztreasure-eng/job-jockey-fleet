@@ -25,10 +25,16 @@ export default function Admin() {
       // 1. Fetch feature flags / app settings
       const { data: settings } = await supabase.from("app_settings").select("key, value");
       if (settings) {
+        const parseBool = (v: any) => {
+          if (typeof v === "boolean") return v;
+          if (typeof v === "string") return v.toLowerCase() === "true" || v === "1";
+          if (typeof v === "number") return v === 1;
+          return Boolean(v);
+        };
         settings.forEach((s: any) => {
-          if (s.key === "allow_direct_job_edit") setDirectEdit(Boolean(s.value));
-          if (s.key === "allow_direct_invoice_completion") setDirectInvoiceComp(Boolean(s.value));
-          if (s.key === "require_cash_job_approval") setRequireCashApproval(Boolean(s.value));
+          if (s.key === "allow_direct_job_edit") setDirectEdit(parseBool(s.value));
+          if (s.key === "allow_direct_invoice_completion") setDirectInvoiceComp(parseBool(s.value));
+          if (s.key === "require_cash_job_approval") setRequireCashApproval(parseBool(s.value));
         });
       }
 
