@@ -113,46 +113,8 @@ export default function Jobs() {
   const historyMode = pathname.startsWith("/history");
   const isAdmin = role === "super_admin";
   const isDispatch = role === "dispatch_admin";
-  const isAssigner = isAdmin || isDispatch || canAssign; // can assign/unassign drivers
   const isMember = role === "member";
   const isDriver = role === "driver";
-
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [jobTitles, setJobTitles] = useState<{ id: string; name: string }[]>([]);
-  const titleNames = useMemo(() => jobTitles.map((t) => t.name), [jobTitles]);
-
-  const customerOptions = useMemo(() => {
-    const map = new Map<string, { name: string; mobile: string; address: string }>();
-    jobs.forEach((j) => {
-      const name = (j.customer_name || "").trim();
-      const mobile = (j.customer_mobile || "").trim();
-      const address = (j.delivery_address || "").trim();
-      if (!name && !mobile) return;
-      const key = `${name.toLowerCase()}||${mobile.toLowerCase()}`;
-      if (!map.has(key)) {
-        map.set(key, { name: name || "Customer", mobile, address });
-      }
-    });
-    return Array.from(map.values());
-  }, [jobs]);
-
-  const [locations, setLocations] = useState<any[]>([]);
-  const [drivers, setDrivers] = useState<any[]>([]);
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [form, setForm] = useState<any>(blank);
-
-  // Filters
-  const [search, setSearch] = useState("");
-  const [fStatus, setFStatus] = useState("all");
-  const [fDriver, setFDriver] = useState("all");
-  const [fLocation, setFLocation] = useState("all");
-  const [fRange, setFRange] = useState<DateRange>("all");
-  const [fFrom, setFFrom] = useState("");
-  const [fTo, setFTo] = useState("");
-  const [fPendingEdit, setFPendingEdit] = useState(false);
-
-  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Feature Flags & Permissions State
   const [appSettings, setAppSettings] = useState({
@@ -182,6 +144,8 @@ export default function Jobs() {
     }
     return appSettings.allow_member_job_assign;
   }, [isAdmin, isDispatch, userPerm, appSettings]);
+
+  const isAssigner = isAdmin || isDispatch || canAssign; // can assign/unassign drivers
 
   // Driver completion modal
   const [completeFor, setCompleteFor] = useState<any | null>(null);
