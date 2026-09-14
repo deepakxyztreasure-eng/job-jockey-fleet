@@ -117,8 +117,25 @@ export default function Jobs() {
   const isDriver = role === "driver";
 
   const [jobs, setJobs] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [jobTitles, setJobTitles] = useState<{ id: string; name: string }[]>([]);
   const titleNames = useMemo(() => jobTitles.map((t) => t.name), [jobTitles]);
+
+  // Filter states
+  const [search, setSearch] = useState("");
+  const [fStatus, setFStatus] = useState<string>("all");
+  const [fDriver, setFDriver] = useState<string>("all");
+  const [fLocation, setFLocation] = useState<string>("all");
+  const [fRange, setFRange] = useState<DateRange>("all");
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+  const [fPendingEdit, setFPendingEdit] = useState(false);
+
+  // Dialog / form states
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState(blank);
 
   const customerOptions = useMemo(() => {
     const map = new Map<string, { name: string; mobile: string; address: string }>();
