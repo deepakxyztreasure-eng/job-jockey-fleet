@@ -116,6 +116,25 @@ export default function Jobs() {
   const isMember = role === "member";
   const isDriver = role === "driver";
 
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobTitles, setJobTitles] = useState<{ id: string; name: string }[]>([]);
+  const titleNames = useMemo(() => jobTitles.map((t) => t.name), [jobTitles]);
+
+  const customerOptions = useMemo(() => {
+    const map = new Map<string, { name: string; mobile: string; address: string }>();
+    jobs.forEach((j) => {
+      const name = (j.customer_name || "").trim();
+      const mobile = (j.customer_mobile || "").trim();
+      const address = (j.delivery_address || "").trim();
+      if (!name && !mobile) return;
+      const key = `${name.toLowerCase()}||${mobile.toLowerCase()}`;
+      if (!map.has(key)) {
+        map.set(key, { name: name || "Customer", mobile, address });
+      }
+    });
+    return Array.from(map.values());
+  }, [jobs]);
+
   // Feature Flags & Permissions State
   const [appSettings, setAppSettings] = useState({
     allow_direct_job_edit: true,
