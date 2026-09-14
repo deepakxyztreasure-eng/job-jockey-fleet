@@ -154,6 +154,25 @@ export default function Jobs() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Feature Flags & Permissions State
+  const [appSettings, setAppSettings] = useState({
+    allow_direct_job_edit: true,
+    allow_direct_invoice_completion: true,
+    require_cash_job_approval: true,
+  });
+  const [userPerm, setUserPerm] = useState<{ can_direct_edit: boolean | null; can_direct_complete_invoice: boolean | null }>({
+    can_direct_edit: null,
+    can_direct_complete_invoice: null,
+  });
+
+  const canDirectEdit = useMemo(() => {
+    if (isAdmin) return true;
+    if (userPerm?.can_direct_edit !== null && userPerm?.can_direct_edit !== undefined) {
+      return userPerm.can_direct_edit;
+    }
+    return appSettings.allow_direct_job_edit;
+  }, [isAdmin, userPerm, appSettings]);
+
   // Driver completion modal
   const [completeFor, setCompleteFor] = useState<any | null>(null);
   const [compNotes, setCompNotes] = useState("");
@@ -228,13 +247,27 @@ export default function Jobs() {
           .order("created_at", { ascending: false });
       }
 
-      // 1. Fetch top 50 jobs (~15ms)
-      const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes] = await Promise.all([
+      // 1. Fetch top 50 jobs (~15ms), settings & permissions
+      const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes, settingsRes, permRes] = await Promise.all([
         jobsQuery.range(0, PAGE_SIZE - 1),
         supabase.from("store_locations").select("id,name,address,active").order("name"),
         driversQuery,
         supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
+        supabase.from("app_settings").select("key, value"),
+        user ? supabase.from("user_permissions").select("can_direct_edit, can_direct_complete_invoice").eq("user_id", user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
+
+      if (settingsRes.data) {
+        const stObj: any = {};
+        settingsRes.data.forEach((s: any) => { stObj[s.key] = Boolean(s.value); });
+        setAppSettings((prev) => ({ ...prev, ...stObj }));
+      }
+      if (permRes?.data) {
+        setUserPerm({
+          can_direct_edit: permRes.data.can_direct_edit ?? null,
+          can_direct_complete_invoice: permRes.data.can_direct_complete_invoice ?? null,
+        });
+      }
 
       if (firstErr) {
         console.error("jobs load error", firstErr);
@@ -501,11 +534,11 @@ export default function Jobs() {
 
 
     if (editing) {
-      if (isMember && editing.created_by !== user?.id) {
+      if (isMember && editing.created_by !== user?.id && !canDirectEdit) {
         return toast.error("You cannot edit this job");
       }
-      // Members & Dispatch Admins: route content edits through approval queue
-      if (isMember || isDispatch) {
+      // Members & Dispatch Admins: route content edits through approval queue ONLY if direct edit is disabled
+      if (!canDirectEdit && (isMember || isDispatch)) {
         const { error } = await supabase
           .from("jobs")
           .update({
@@ -515,12 +548,14 @@ export default function Jobs() {
           })
           .eq("id", editing.id);
         if (error) return toast.error(error.message);
-        await supabase.rpc("notify_admins", {
-          p_title: "Job edit awaiting approval",
-          p_body: `${editing.title} (Invoice ${editing.invoice_number})`,
-          p_type: "edit_requested",
-          p_job_id: editing.id,
-        });
+        try {
+          await supabase.rpc("notify_admins", {
+            p_title: "Job edit awaiting approval",
+            p_body: `${editing.title} (Invoice ${editing.invoice_number})`,
+            p_type: "edit_requested",
+            p_job_id: editing.id,
+          });
+        } catch { /* noop */ }
         toast.success("Edit submitted for super admin approval");
         setOpen(false);
         load();
@@ -528,6 +563,7 @@ export default function Jobs() {
       }
       const { error } = await supabase.from("jobs").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
+      toast.success("Job updated successfully");
     } else {
       payload.created_by = user!.id;
       payload.status = "pending";
@@ -799,12 +835,16 @@ export default function Jobs() {
         .eq("id", completeFor.id);
       if (error) throw error;
 
-      await supabase.rpc("notify_admins", {
-        p_title: "Completion requested",
-        p_body: `${completeFor.title} (Invoice ${completeFor.invoice_number}) awaits verification`,
-        p_type: "completion_requested",
-        p_job_id: completeFor.id,
-      });
+      try {
+        await supabase.rpc("notify_admins", {
+          p_title: "Completion requested",
+          p_body: `${completeFor.title} (Invoice ${completeFor.invoice_number}) awaits verification`,
+          p_type: "completion_requested",
+          p_job_id: completeFor.id,
+        });
+      } catch (rpcErr) {
+        console.warn("notify_admins RPC skipped:", rpcErr);
+      }
       toast.success("Sent for admin verification");
       setCompleteFor(null);
       setCompNotes("");
@@ -819,6 +859,11 @@ export default function Jobs() {
 
   const adminApprove = async () => {
     if (!verifyFor || !user) return;
+    const isCashJob = verifyFor.cod || verifyFor.payment_kind === "cod" || !verifyFor.invoice_number;
+    if (isCashJob && appSettings.require_cash_job_approval && !isAdmin) {
+      return toast.error("SuperAdmin approval is required for Cash (COD) jobs");
+    }
+
     const patchData = {
       status: "completed" as any,
       verified_at: new Date().toISOString(),
@@ -1887,7 +1932,7 @@ export default function Jobs() {
                         {isDriver && j.status === "completed" && (
                           <span className="text-xs text-success px-2">Completed ✓</span>
                         )}
-                        {isAdmin && j.status === "completion_requested" && (
+                        {(isAdmin || isDispatch || isMember) && j.status === "completion_requested" && (
                           <Button
                             size="sm"
                             variant="outline"

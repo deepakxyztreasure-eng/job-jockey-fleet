@@ -10,9 +10,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 type Role = "super_admin" | "dispatch_admin" | "member" | "driver";
-interface Row { id: string; full_name: string|null; email: string|null; phone: string|null; role: Role | null }
+interface Row { id: string; full_name: string|null; email: string|null; phone: string|null; role: Role | null; can_direct_edit?: boolean | null }
 
-const blank = { id: "", full_name: "", email: "", phone: "", password: "", role: "member" as Role };
+const blank = { id: "", full_name: "", email: "", phone: "", password: "", role: "member" as Role, can_direct_edit: "inherit" as "inherit" | "true" | "false" };
 
 export default function Users() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -24,13 +24,21 @@ export default function Users() {
   const load = async () => {
     const { data: profiles } = await supabase.from("profiles").select("id, full_name, email, phone");
     const { data: roles } = await supabase.from("user_roles").select("user_id, role");
+    const { data: perms } = await supabase.from("user_permissions").select("user_id, can_direct_edit");
     const roleMap = new Map<string, Role>();
     (roles ?? []).forEach((r: any) => {
       const cur = roleMap.get(r.user_id);
       const rank: Record<Role, number> = { super_admin: 1, dispatch_admin: 2, member: 3, driver: 4 };
       if (!cur || rank[r.role as Role] < rank[cur]) roleMap.set(r.user_id, r.role);
     });
-    setRows((profiles ?? []).map((p: any) => ({ ...p, role: roleMap.get(p.id) ?? null })));
+    const permMap = new Map<string, boolean | null>();
+    (perms ?? []).forEach((p: any) => permMap.set(p.user_id, p.can_direct_edit));
+
+    setRows((profiles ?? []).map((p: any) => ({
+      ...p,
+      role: roleMap.get(p.id) ?? null,
+      can_direct_edit: permMap.get(p.id) ?? null,
+    })));
   };
   useEffect(() => { load(); }, []);
 
@@ -45,19 +53,22 @@ export default function Users() {
   const startCreate = () => { setEditing(null); setForm(blank); setOpen(true); };
   const startEdit = (r: Row) => {
     setEditing(r);
-    setForm({ id: r.id, full_name: r.full_name ?? "", email: r.email ?? "", phone: r.phone ?? "", password: "", role: (r.role ?? "member") as Role });
+    const permStr = r.can_direct_edit === true ? "true" : r.can_direct_edit === false ? "false" : "inherit";
+    setForm({ id: r.id, full_name: r.full_name ?? "", email: r.email ?? "", phone: r.phone ?? "", password: "", role: (r.role ?? "member") as Role, can_direct_edit: permStr });
     setOpen(true);
   };
 
   const submit = async () => {
     setBusy(true);
     try {
+      let targetUserId = editing?.id;
       if (!editing) {
         if (!form.email || !form.password) { toast.error("Email and password required"); return; }
         const { data, error } = await supabase.functions.invoke("admin-users", {
           body: { action: "create", email: form.email, password: form.password, full_name: form.full_name, phone: form.phone, role: form.role },
         });
         if (error || (data as any)?.error) { toast.error(((data as any)?.error) || error!.message); return; }
+        targetUserId = (data as any)?.user_id;
         toast.success("Member added");
       } else {
         const { data, error } = await supabase.functions.invoke("admin-users", {
@@ -66,6 +77,17 @@ export default function Users() {
         if (error || (data as any)?.error) { toast.error(((data as any)?.error) || error!.message); return; }
         toast.success(form.password ? "Updated & password reset" : "Updated");
       }
+
+      // Save user-wise direct edit permission override
+      if (targetUserId && (form.role === "member" || form.role === "dispatch_admin")) {
+        const val = form.can_direct_edit === "true" ? true : form.can_direct_edit === "false" ? false : null;
+        await supabase.from("user_permissions").upsert({
+          user_id: targetUserId,
+          can_direct_edit: val,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+      }
+
       setOpen(false); load();
     } finally { setBusy(false); }
   };
@@ -82,7 +104,7 @@ export default function Users() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Users & Roles</h1>
-          <p className="text-sm text-muted-foreground mt-1">Add staff members, manage roles, and remove access.</p>
+          <p className="text-sm text-muted-foreground mt-1">Add staff members, manage roles, and set per-user edit permissions.</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button onClick={startCreate}><Plus className="h-4 w-4 mr-2" />Add member</Button></DialogTrigger>
@@ -101,11 +123,28 @@ export default function Users() {
                   <SelectContent>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
                     <SelectItem value="dispatch_admin">Dispatch Admin</SelectItem>
-                    <SelectItem value="member">Member (Staff)</SelectItem>
+                    <SelectItem value="member">Staff Admin (`member`)</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {(form.role === "member" || form.role === "dispatch_admin") && (
+                <div>
+                  <Label>Direct Job Editing Permission</Label>
+                  <Select value={form.can_direct_edit} onValueChange={(v: any)=>setForm({...form, can_direct_edit: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inherit">Inherit Global Setting (Recommended)</SelectItem>
+                      <SelectItem value="true">Force Enable (Direct Edit Without Approval)</SelectItem>
+                      <SelectItem value="false">Force Disable (Require SuperAdmin Approval)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Controls whether this Staff Admin can save job changes directly without SuperAdmin approval.
+                  </p>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={()=>setOpen(false)}>Cancel</Button>

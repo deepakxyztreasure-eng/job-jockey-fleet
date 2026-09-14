@@ -317,6 +317,44 @@ create policy "admins can view leads" on public.lead_submissions for select to a
 create policy "push_subscriptions_own" on public.push_subscriptions for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
+-- ============ APP SETTINGS & FEATURE FLAGS ============
+create table if not exists public.app_settings (
+  key text primary key,
+  value jsonb not null,
+  description text,
+  updated_at timestamptz default now(),
+  updated_by uuid references auth.users(id)
+);
+
+insert into public.app_settings (key, value, description) values
+  ('allow_direct_job_edit', 'true'::jsonb, 'Allow Staff Admins (member) and Dispatch Admins to edit jobs directly without SuperAdmin approval'),
+  ('allow_direct_invoice_completion', 'true'::jsonb, 'Allow direct completion for Invoice jobs by Staff Admins'),
+  ('require_cash_job_approval', 'true'::jsonb, 'Require SuperAdmin approval for Cash (COD) job completions')
+on conflict (key) do nothing;
+
+grant select on public.app_settings to authenticated;
+grant all on public.app_settings to service_role;
+alter table public.app_settings enable row level security;
+
+create policy "app_settings_read_all" on public.app_settings for select to authenticated using (true);
+create policy "app_settings_admin_all" on public.app_settings for all to authenticated 
+  using (public.has_role(auth.uid(), 'super_admin')) with check (public.has_role(auth.uid(), 'super_admin'));
+
+create table if not exists public.user_permissions (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  can_direct_edit boolean default null,
+  can_direct_complete_invoice boolean default null,
+  updated_at timestamptz default now()
+);
+
+grant select on public.user_permissions to authenticated;
+grant all on public.user_permissions to service_role;
+alter table public.user_permissions enable row level security;
+
+create policy "user_permissions_read_all" on public.user_permissions for select to authenticated using (true);
+create policy "user_permissions_admin_all" on public.user_permissions for all to authenticated 
+  using (public.has_role(auth.uid(), 'super_admin')) with check (public.has_role(auth.uid(), 'super_admin'));
+
 -- ============ STORAGE ============
 insert into storage.buckets (id, name, public) values ('job-proofs','job-proofs', false)
 on conflict (id) do nothing;
