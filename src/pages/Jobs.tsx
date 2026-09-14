@@ -357,10 +357,12 @@ export default function Jobs() {
       } else {
         const locMap = new Map(locations.map((l: any) => [l.id, l]));
         const drvMap = new Map(drivers.map((d: any) => [d.id, d]));
+        const profMap = new Map(creators.map((c: any) => [c.id, { full_name: c.name, email: c.email }]));
         const enrichedNext = nextPageData.map((j: any) => ({
           ...j,
           store_locations: j.pickup_location_id ? (locMap.get(j.pickup_location_id) ?? null) : null,
           drivers: j.assigned_driver_id ? (drvMap.get(j.assigned_driver_id) ?? null) : null,
+          creator: j.created_by ? (profMap.get(j.created_by) ?? null) : null,
         }));
         setJobs((prev) => [...prev, ...enrichedNext]);
         setPage(nextPage);
