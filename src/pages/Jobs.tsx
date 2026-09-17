@@ -243,6 +243,75 @@ export default function Jobs() {
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
 
+  const buildJobsQuery = (pageNumber: number, pageSize: number) => {
+    let q = supabase.from("jobs").select("*");
+
+    if (!historyMode) {
+      q = q.not("status", "in", "(completed,rejected)");
+    } else {
+      q = q.in("status", ["completed", "rejected"]);
+    }
+
+    const term = search.trim();
+    if (term) {
+      const escaped = term.replace(/[%_\\]/g, "\\$&");
+      q = q.or(
+        `title.ilike.%${escaped}%,invoice_number.ilike.%${escaped}%,customer_name.ilike.%${escaped}%,customer_mobile.ilike.%${escaped}%`
+      );
+    }
+
+    if (fStatus !== "all") {
+      q = q.eq("status", fStatus);
+    }
+
+    if (isAdmin && fDriver !== "all") {
+      q = q.eq("assigned_driver_id", fDriver);
+    }
+
+    if (isAdmin && fCreator !== "all") {
+      q = q.eq("created_by", fCreator);
+    }
+
+    if (fLocation !== "all") {
+      q = q.eq("pickup_location_id", fLocation);
+    }
+
+    let now = new Date();
+    let fromDate: Date | null = null;
+    let toDate: Date | null = null;
+    if (fRange === "today") {
+      fromDate = startOfDay(now);
+      toDate = endOfDay(now);
+    } else if (fRange === "week") {
+      fromDate = startOfWeek(now);
+      toDate = endOfWeek(now);
+    } else if (fRange === "month") {
+      fromDate = startOfMonth(now);
+      toDate = endOfMonth(now);
+    } else if (fRange === "custom") {
+      if (fFrom) fromDate = startOfDay(new Date(fFrom));
+      if (fTo) toDate = endOfDay(new Date(fTo));
+    }
+
+    if (fromDate) {
+      q = q.gte("scheduled_date", format(fromDate, "yyyy-MM-dd"));
+    }
+    if (toDate) {
+      q = q.lte("scheduled_date", format(toDate, "yyyy-MM-dd"));
+    }
+
+    if (!historyMode) {
+      q = q
+        .order("scheduled_date", { ascending: true, nullsFirst: false })
+        .order("start_time", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false });
+    } else {
+      q = q.order("created_at", { ascending: false });
+    }
+
+    return q.range(pageNumber * pageSize, (pageNumber + 1) * pageSize - 1);
+  };
+
   const load = async () => {
     try {
       setPage(0);
@@ -250,19 +319,6 @@ export default function Jobs() {
       const driversQuery = isAssigner
         ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
         : supabase.rpc("list_drivers_directory");
-
-      let jobsQuery = supabase.from("jobs").select("*");
-      if (!historyMode) {
-        jobsQuery = jobsQuery
-          .not("status", "in", "(completed,rejected)")
-          .order("scheduled_date", { ascending: true, nullsFirst: false })
-          .order("start_time", { ascending: true, nullsFirst: false })
-          .order("created_at", { ascending: false });
-      } else {
-        jobsQuery = jobsQuery
-          .in("status", ["completed", "rejected"])
-          .order("created_at", { ascending: false });
-      }
 
       const creatorsQuery = isAdmin
         ? (async () => {
@@ -276,9 +332,8 @@ export default function Jobs() {
           })()
         : Promise.resolve({ data: [], error: null });
 
-      // 1. Fetch top 50 jobs (~15ms), settings & permissions
       const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes, settingsRes, permRes, profsRes] = await Promise.all([
-        jobsQuery.range(0, PAGE_SIZE - 1),
+        buildJobsQuery(0, PAGE_SIZE),
         supabase.from("store_locations").select("id,name,address,active").order("name"),
         driversQuery,
         supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
@@ -327,7 +382,6 @@ export default function Jobs() {
         creator: j.created_by ? (profMap.get(j.created_by) ?? null) : null,
       }));
 
-      // Render top 50 jobs instantly in ~15ms!
       setJobs(enrichedFirst);
       setLocations((ls ?? []).filter((l: any) => l.active !== false));
       setDrivers(ds.filter((d: any) => d.active));
@@ -348,21 +402,7 @@ export default function Jobs() {
     setLoadingMore(true);
     const nextPage = page + 1;
     try {
-      let jobsQuery = supabase.from("jobs").select("*");
-      if (!historyMode) {
-        jobsQuery = jobsQuery
-          .not("status", "in", "(completed,rejected)")
-          .order("scheduled_date", { ascending: true, nullsFirst: false })
-          .order("start_time", { ascending: true, nullsFirst: false })
-          .order("created_at", { ascending: false });
-      } else {
-        jobsQuery = jobsQuery
-          .in("status", ["completed", "rejected"])
-          .order("created_at", { ascending: false });
-      }
-
-      const { data: nextPageData, error } = await jobsQuery
-        .range(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE - 1);
+      const { data: nextPageData, error } = await buildJobsQuery(nextPage, PAGE_SIZE);
 
       if (error || !nextPageData || nextPageData.length === 0) {
         setHasMore(false);
@@ -389,7 +429,13 @@ export default function Jobs() {
   };
 
   useEffect(() => {
-    load();
+    const timer = setTimeout(() => {
+      load();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, fStatus, fDriver, fCreator, fLocation, fRange, fFrom, fTo, historyMode]);
+
+  useEffect(() => {
     const ch = supabase
       .channel("jobs-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, () => load())
