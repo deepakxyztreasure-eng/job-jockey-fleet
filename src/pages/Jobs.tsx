@@ -254,10 +254,13 @@ export default function Jobs() {
 
     const term = search.trim();
     if (term) {
-      const escaped = term.replace(/[%_\\]/g, "\\$&");
-      q = q.or(
-        `title.ilike.%${escaped}%,invoice_number.ilike.%${escaped}%,customer_name.ilike.%${escaped}%,customer_mobile.ilike.%${escaped}%`
-      );
+      const words = term.split(/\s+/).filter(Boolean);
+      words.forEach((w) => {
+        const escaped = w.replace(/[%_\\]/g, "\\$&");
+        q = q.or(
+          `title.ilike.%${escaped}%,invoice_number.ilike.%${escaped}%,customer_name.ilike.%${escaped}%,customer_mobile.ilike.%${escaped}%`
+        );
+      });
     }
 
     if (fStatus !== "all") {
@@ -462,7 +465,8 @@ export default function Jobs() {
       if (fFrom) from = startOfDay(new Date(fFrom));
       if (fTo) to = endOfDay(new Date(fTo));
     }
-    const q = search.trim().toLowerCase();
+    const term = search.trim().toLowerCase();
+    const words = term ? term.split(/\s+/).filter(Boolean) : [];
     const parseLocalDate = (dateStr: string) => {
       if (typeof dateStr === "string" && dateStr.length === 10 && dateStr.includes("-")) {
         const [y, m, d] = dateStr.split("-").map(Number);
@@ -478,10 +482,10 @@ export default function Jobs() {
         const currentDriver = drivers.find((d) => d.user_id === user?.id);
         if (currentDriver && j.assigned_driver_id !== currentDriver.id) return false;
       }
-      if (q) {
+      if (words.length > 0) {
         const hay =
           `${j.title ?? ""} ${j.invoice_number ?? ""} ${j.customer_name ?? ""} ${j.customer_mobile ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
+        if (!words.every((w) => hay.includes(w))) return false;
       }
       if (fStatus !== "all" && j.status !== fStatus) return false;
       if (isAdmin && fDriver !== "all" && j.assigned_driver_id !== fDriver) return false;
