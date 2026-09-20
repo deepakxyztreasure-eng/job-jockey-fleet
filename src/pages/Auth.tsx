@@ -70,7 +70,13 @@ export default function Auth() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      if (error.message.toLowerCase().includes("email not confirmed")) {
+        toast.warning("Email not confirmed yet. Sending a 15-minute setup link to your email...");
+        sendInvitationEmail({ email }).catch(() => {});
+        setViewMode("forgot-password");
+      } else {
+        toast.error(error.message);
+      }
     } else {
       toast.success("Welcome back");
       navigate("/dashboard");
@@ -109,15 +115,15 @@ export default function Auth() {
       }
 
       // 5. Try signing in with target email & new password
-      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
-      if (!signInErr) {
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
+      if (!signInErr && signInData?.session) {
         toast.success(`Signed in as ${targetEmail}!`);
         navigate("/dashboard");
         return;
       }
 
       // 6. Register/activate credentials for target receiver email
-      const { error: signUpErr } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
         email: targetEmail,
         password,
         options: {
@@ -126,10 +132,22 @@ export default function Auth() {
       });
 
       if (signUpErr) {
-        toast.error(signUpErr.message);
+        if (signUpErr.message.toLowerCase().includes("already registered") || signUpErr.message.toLowerCase().includes("user already exists")) {
+          toast.info(`Account exists for ${targetEmail}. Dispatching a 15-minute setup link to your email...`);
+          await sendInvitationEmail({ email: targetEmail });
+          setViewMode("auth");
+        } else {
+          toast.error(signUpErr.message);
+        }
       } else {
-        toast.success(`Password configured for ${targetEmail}! You may now sign in.`);
-        setViewMode("auth");
+        if (signUpData?.session) {
+          toast.success(`Password configured! Logged in as ${targetEmail}`);
+          navigate("/dashboard");
+        } else {
+          toast.success(`Password set for ${targetEmail}! A confirmation email has been sent.`);
+          await sendInvitationEmail({ email: targetEmail }).catch(() => {});
+          setViewMode("auth");
+        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Could not set password");
