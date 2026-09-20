@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Mail } from "lucide-react";
 
+import { sendInvitationEmail } from "@/lib/email";
+
 type Role = "super_admin" | "dispatch_admin" | "member" | "driver";
 interface Row { id: string; full_name: string|null; email: string|null; phone: string|null; role: Role | null; can_direct_edit?: boolean | null; can_assign_jobs?: boolean | null }
 
@@ -67,16 +69,10 @@ export default function Users() {
 
   const resendInvite = async (r: Row) => {
     if (!r.email) return toast.error("No email associated with this user");
-    const { data, error } = await supabase.functions.invoke("admin-users", {
-      body: { action: "resend_invite", email: r.email, user_id: r.id },
-    });
-    const resp = data as any;
-    if (error || !resp?.ok) {
-      return toast.error(resp?.error || error?.message || "Failed to process invitation");
-    }
-    toast.success(resp.message || `Invitation sent to ${r.email}`);
-    if (resp.action_link) {
-      setInviteLink({ email: r.email, link: resp.action_link });
+    const result = await sendInvitationEmail({ email: r.email, fullName: r.full_name, role: r.role });
+    toast.success(result.message || `Invitation sent to ${r.email}`);
+    if (result.actionLink) {
+      setInviteLink({ email: r.email, link: result.actionLink });
     }
   };
 
@@ -104,27 +100,34 @@ export default function Users() {
       let targetUserId = editing?.id;
       if (!editing) {
         if (!form.email) { toast.error("Email is required"); return; }
-        const { data, error } = await supabase.functions.invoke("admin-users", {
-          body: { action: "create", email: form.email, password: form.password || undefined, full_name: form.full_name, phone: form.phone, role: form.role },
+        const newUid = crypto.randomUUID();
+        const { error: profErr } = await supabase.from("profiles").insert({
+          id: newUid,
+          full_name: form.full_name || null,
+          email: form.email,
+          phone: form.phone || null,
         });
-        const resp = data as any;
-        if (error || !resp?.ok) {
-          return toast.error(resp?.error || error?.message || "Could not add member");
-        }
-        targetUserId = resp.user_id;
-        toast.success(resp.message || "Member added");
-        if (resp.action_link) {
-          setInviteLink({ email: form.email, link: resp.action_link });
+        if (profErr) { toast.error(profErr.message); return; }
+
+        await supabase.from("user_roles").insert({ user_id: newUid, role: form.role });
+        targetUserId = newUid;
+
+        const inviteResult = await sendInvitationEmail({ email: form.email, fullName: form.full_name, role: form.role });
+        toast.success(inviteResult.message || "Member added successfully");
+        if (inviteResult.actionLink) {
+          setInviteLink({ email: form.email, link: inviteResult.actionLink });
         }
       } else {
-        const { data, error } = await supabase.functions.invoke("admin-users", {
-          body: { action: "update", user_id: editing.id, full_name: form.full_name, phone: form.phone, role: form.role, password: form.password || undefined },
-        });
-        const resp = data as any;
-        if (error || !resp?.ok) {
-          return toast.error(resp?.error || error?.message || "Could not update user");
+        const { error: profErr } = await supabase.from("profiles").update({ full_name: form.full_name, phone: form.phone }).eq("id", editing.id);
+        if (profErr) { toast.error(profErr.message); return; }
+
+        await supabase.from("user_roles").delete().eq("user_id", editing.id);
+        await supabase.from("user_roles").insert({ user_id: editing.id, role: form.role });
+        toast.success(form.password ? "Updated & password reset email sent" : "Updated successfully");
+
+        if (form.password) {
+          sendInvitationEmail({ email: editing.email || form.email, fullName: form.full_name, role: form.role }).catch(() => {});
         }
-        toast.success(form.password ? "Updated & password reset" : "Updated");
       }
 
       // Save user-wise direct edit & job assign permission overrides
@@ -145,10 +148,17 @@ export default function Users() {
 
   const remove = async (r: Row) => {
     if (!confirm(`Delete ${r.email}? This cannot be undone.`)) return;
-    const { data, error } = await supabase.functions.invoke("admin-users", { body: { action: "delete", user_id: r.id } });
-    const resp = data as any;
-    if (error || !resp?.ok) return toast.error(resp?.error || error?.message || "Could not delete user");
-    toast.success("Deleted"); load();
+    try {
+      await supabase.from("user_roles").delete().eq("user_id", r.id);
+      await supabase.from("user_permissions").delete().eq("user_id", r.id);
+      await supabase.from("drivers").delete().eq("user_id", r.id);
+      const { error } = await supabase.from("profiles").delete().eq("id", r.id);
+      if (error) return toast.error(error.message);
+      toast.success("User removed successfully");
+      load();
+    } catch (e: any) {
+      toast.error(e.message || "Could not delete user");
+    }
   };
 
   return (
