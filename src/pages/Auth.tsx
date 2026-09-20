@@ -133,6 +133,13 @@ export default function Auth() {
 
       if (signUpErr) {
         if (signUpErr.message.toLowerCase().includes("already registered") || signUpErr.message.toLowerCase().includes("user already exists")) {
+          // Retry signing in
+          const { data: retrySignIn, error: retryErr } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
+          if (!retryErr && retrySignIn?.session) {
+            toast.success(`Signed in as ${targetEmail}!`);
+            navigate("/dashboard");
+            return;
+          }
           toast.info(`Account exists for ${targetEmail}. Dispatching a 15-minute setup link to your email...`);
           await sendInvitationEmail({ email: targetEmail });
           setViewMode("auth");
@@ -140,6 +147,14 @@ export default function Auth() {
           toast.error(signUpErr.message);
         }
       } else {
+        // Immediately sign in after signUp
+        const { data: postSignUpSignIn, error: postSignInErr } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
+        if (!postSignInErr && postSignUpSignIn?.session) {
+          toast.success(`Password set successfully! Logged in as ${targetEmail}`);
+          navigate("/dashboard");
+          return;
+        }
+
         if (signUpData?.session) {
           toast.success(`Password configured! Logged in as ${targetEmail}`);
           navigate("/dashboard");

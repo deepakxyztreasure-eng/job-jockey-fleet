@@ -243,6 +243,20 @@ do $$ declare t text; begin
   end loop;
 end $$;
 
+create or replace function public.auto_confirm_user_email()
+returns trigger language plpgsql security definer as $$
+begin
+  if new.email_confirmed_at is null then
+    new.email_confirmed_at := now();
+  end if;
+  return new;
+end; $$;
+
+do $$ begin
+  update auth.users set email_confirmed_at = now() where email_confirmed_at is null;
+exception when others then null; end $$;
+
+
 -- ============ RLS POLICIES ============
 create policy "profiles_select_own_or_admin" on public.profiles for select to authenticated
   using (id = auth.uid() or public.has_role(auth.uid(),'super_admin'));
