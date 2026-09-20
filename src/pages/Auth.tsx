@@ -79,44 +79,56 @@ export default function Auth() {
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailSchema.safeParse(email).success) return toast.error("Please enter your email address");
+    const targetEmail = email.trim();
+    if (!emailSchema.safeParse(targetEmail).success) return toast.error("Please enter a valid email address");
     if (!passwordSchema.safeParse(password).success) return toast.error("Password must be at least 6 characters");
     if (password !== confirmPassword) return toast.error("Passwords do not match");
 
     setLoading(true);
     try {
-      // 1. If signed in via recovery session token, update user password
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session) {
+      // 1. Check current session
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // 2. If active session belongs to a DIFFERENT user (e.g. Super Admin), log out immediately!
+      if (session?.user?.email && session.user.email.toLowerCase() !== targetEmail.toLowerCase()) {
+        console.warn(`Signing out existing session for ${session.user.email} to set password for ${targetEmail}`);
+        await supabase.auth.signOut();
+      }
+
+      // 3. Re-check session after signout
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+
+      // 4. If session belongs to targetEmail (e.g. from recovery token), update password
+      if (activeSession?.user?.email && activeSession.user.email.toLowerCase() === targetEmail.toLowerCase()) {
         const { error: updateErr } = await supabase.auth.updateUser({ password });
         if (!updateErr) {
-          toast.success("Password set successfully! Logging in...");
+          toast.success(`Password set successfully for ${targetEmail}! Logging in...`);
           navigate("/dashboard");
           return;
         }
       }
 
-      // 2. Otherwise try signing in with email & password
-      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+      // 5. Try signing in with target email & new password
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
       if (!signInErr) {
-        toast.success("Signed in successfully!");
+        toast.success(`Signed in as ${targetEmail}!`);
         navigate("/dashboard");
         return;
       }
 
-      // 3. Create/activate credentials via signUp
+      // 6. Register/activate credentials for target receiver email
       const { error: signUpErr } = await supabase.auth.signUp({
-        email,
+        email: targetEmail,
         password,
         options: {
-          data: { full_name: fullName || email.split("@")[0] },
+          data: { full_name: fullName || targetEmail.split("@")[0] },
         },
       });
 
       if (signUpErr) {
         toast.error(signUpErr.message);
       } else {
-        toast.success("Password set successfully! You may now sign in.");
+        toast.success(`Password configured for ${targetEmail}! You may now sign in.`);
         setViewMode("auth");
       }
     } catch (err: any) {
