@@ -143,6 +143,7 @@ export default function Jobs() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState(blank);
+  const [productSearch, setProductSearch] = useState("");
 
   const customerOptions = useMemo(() => {
     const map = new Map<string, { name: string; mobile: string; address: string }>();
@@ -252,13 +253,17 @@ export default function Jobs() {
       q = q.in("status", ["completed", "rejected"]);
     }
 
+    if (isMember && user?.id) {
+      q = q.eq("created_by", user.id);
+    }
+
     const term = search.trim();
     if (term) {
       const words = term.split(/\s+/).filter(Boolean);
       words.forEach((w) => {
         const escaped = w.replace(/[%_\\]/g, "\\$&");
         q = q.or(
-          `title.ilike.%${escaped}%,invoice_number.ilike.%${escaped}%,customer_name.ilike.%${escaped}%,customer_mobile.ilike.%${escaped}%`
+          `title.ilike.%${escaped}%,invoice_number.ilike.%${escaped}%,customer_name.ilike.%${escaped}%,customer_mobile.ilike.%${escaped}%,pickup_address.ilike.%${escaped}%,delivery_address.ilike.%${escaped}%`
         );
       });
     }
@@ -271,7 +276,7 @@ export default function Jobs() {
       q = q.eq("assigned_driver_id", fDriver);
     }
 
-    if (isAdmin && fCreator !== "all") {
+    if ((isAdmin || isDispatch) && fCreator !== "all") {
       q = q.eq("created_by", fCreator);
     }
 
@@ -323,23 +328,16 @@ export default function Jobs() {
         ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
         : supabase.rpc("list_drivers_directory");
 
-      const creatorsQuery = isAdmin
-        ? (async () => {
-            const { data: roles } = await supabase
-              .from("user_roles")
-              .select("user_id")
-              .in("role", ["super_admin", "dispatch_admin", "member"]);
-            const ids = (roles ?? []).map((r: any) => r.user_id);
-            if (ids.length === 0) return { data: [], error: null };
-            return supabase.from("profiles").select("id, full_name, email").in("id", ids).order("full_name");
-          })()
-        : Promise.resolve({ data: [], error: null });
+      const creatorsQuery = (async () => {
+        const { data: profs } = await supabase.from("profiles").select("id, full_name, email").order("full_name");
+        return { data: profs ?? [], error: null };
+      })();
 
       const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes, settingsRes, permRes, profsRes] = await Promise.all([
         buildJobsQuery(0, PAGE_SIZE),
         supabase.from("store_locations").select("id,name,address,active").order("name"),
         driversQuery,
-        supabase.from("job_titles").select("id,name,active,sort_order").order("sort_order").order("name"),
+        supabase.from("job_titles").select("id,name,active,sort_order").order("name", { ascending: true }),
         supabase.from("app_settings").select("key, value"),
         user ? supabase.from("user_permissions").select("can_direct_edit, can_direct_complete_invoice, can_assign_jobs").eq("user_id", user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
         creatorsQuery,
@@ -374,7 +372,7 @@ export default function Jobs() {
       const drvMap = new Map(ds.map((d: any) => [d.id, d]));
       const profMap = new Map(profs.map((p: any) => [p.id, p]));
 
-      if (isAdmin && profs.length > 0) {
+      if (profs.length > 0) {
         setCreators(profs.map((p: any) => ({ id: p.id, name: p.full_name || p.email || "Member", email: p.email })));
       }
 
@@ -477,19 +475,19 @@ export default function Jobs() {
     return jobs.filter((j) => {
       const inHistory = (HISTORY_STATUSES as readonly string[]).includes(j.status);
       if (!historyMode && inHistory) return false;
-      if (historyMode && !isAdmin && !inHistory) return false;
+      if (historyMode && !inHistory) return false;
       if (isDriver) {
         const currentDriver = drivers.find((d) => d.user_id === user?.id);
         if (currentDriver && j.assigned_driver_id !== currentDriver.id) return false;
       }
       if (words.length > 0) {
         const hay =
-          `${j.title ?? ""} ${j.invoice_number ?? ""} ${j.customer_name ?? ""} ${j.customer_mobile ?? ""}`.toLowerCase();
+          `${j.title ?? ""} ${j.invoice_number ?? ""} ${j.customer_name ?? ""} ${j.customer_mobile ?? ""} ${j.pickup_address ?? ""} ${j.delivery_address ?? ""} ${j.store_locations?.name ?? ""}`.toLowerCase();
         if (!words.every((w) => hay.includes(w))) return false;
       }
       if (fStatus !== "all" && j.status !== fStatus) return false;
       if (isAdmin && fDriver !== "all" && j.assigned_driver_id !== fDriver) return false;
-      if (isAdmin && fCreator !== "all" && j.created_by !== fCreator) return false;
+      if ((isAdmin || isDispatch) && fCreator !== "all" && j.created_by !== fCreator) return false;
       if (fLocation !== "all" && j.pickup_location_id !== fLocation) return false;
       if (from || to) {
         const d = j.scheduled_date
@@ -503,7 +501,7 @@ export default function Jobs() {
       if (isAdmin && fPendingEdit && !j.pending_edit) return false;
       return true;
     });
-  }, [jobs, search, fStatus, fDriver, fCreator, fLocation, fRange, fFrom, fTo, isAdmin, isDriver, drivers, user, fPendingEdit, historyMode]);
+  }, [jobs, search, fStatus, fDriver, fCreator, fLocation, fRange, fFrom, fTo, isAdmin, isDispatch, isDriver, drivers, user, fPendingEdit, historyMode]);
 
   const groupedJobs = useMemo(() => {
     const todayObj = new Date();
@@ -1095,6 +1093,9 @@ export default function Jobs() {
   };
 
   const updatePayment = async (j: any, status: string) => {
+    if (status === "paid" && (j.cod || j.payment_kind === "cod") && !isAdmin) {
+      return toast.error("Only Gurinder (Admin) can clear cash payments");
+    }
     setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, payment_status: status } : item)));
     const { error } = await supabase
       .from("jobs")
@@ -1167,12 +1168,24 @@ export default function Jobs() {
                           <SelectTrigger>
                             <SelectValue placeholder="Select job title type" />
                           </SelectTrigger>
-                          <SelectContent>
-                            {titleNames.map((t) => (
-                              <SelectItem key={t} value={t}>
-                                {t}
-                              </SelectItem>
-                            ))}
+                          <SelectContent className="max-h-64 overflow-y-auto">
+                            <div className="p-2 sticky top-0 bg-popover z-10 border-b">
+                              <Input
+                                placeholder="🔍 Search product A-Z…"
+                                value={productSearch}
+                                onChange={(e) => setProductSearch(e.target.value)}
+                                className="h-8 text-xs bg-background"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            {titleNames
+                              .filter((t) => !productSearch || t.toLowerCase().includes(productSearch.toLowerCase()))
+                              .map((t) => (
+                                <SelectItem key={t} value={t}>
+                                  {t}
+                                </SelectItem>
+                              ))}
                             <SelectItem value="__other__">Others</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1749,7 +1762,7 @@ export default function Jobs() {
                       <div>{j.drivers?.full_name ?? <span className="italic text-muted-foreground">Unassigned</span>}</div>
                     </div>
                   )}
-                  {isAdmin && j.creator?.full_name && (
+                  {j.creator?.full_name && (
                     <div className="col-span-2">
                       <div className="text-muted-foreground">Created By</div>
                       <div className="font-medium text-foreground">{j.creator.full_name}</div>
@@ -2415,6 +2428,8 @@ export default function Jobs() {
                   {row("Number of loads", j.number_of_loads)}
                   {row("Instructions / notes", j.instructions)}
                   {row("Product description", j.description)}
+                  {row("Created By", j.creator?.full_name ?? "—")}
+                  {row("Created At", j.created_at ? format(new Date(j.created_at), "MMM d, yyyy h:mm a") : "—")}
                 </div>
               );
             })()}

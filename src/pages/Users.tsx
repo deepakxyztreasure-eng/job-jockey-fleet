@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Mail } from "lucide-react";
 
 type Role = "super_admin" | "dispatch_admin" | "member" | "driver";
 interface Row { id: string; full_name: string|null; email: string|null; phone: string|null; role: Role | null; can_direct_edit?: boolean | null; can_assign_jobs?: boolean | null }
@@ -61,6 +61,15 @@ export default function Users() {
     const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole });
     if (error) return toast.error(error.message);
     toast.success("Role updated"); load();
+  };
+
+  const resendInvite = async (r: Row) => {
+    if (!r.email) return toast.error("No email associated with this user");
+    const { data, error } = await supabase.functions.invoke("admin-users", {
+      body: { action: "resend_invite", email: r.email, user_id: r.id },
+    });
+    if (error || (data as any)?.error) return toast.error(((data as any)?.error) || error!.message);
+    toast.success(`Invitation email sent to ${r.email}`);
   };
 
   const startCreate = () => { setEditing(null); setForm(blank); setOpen(true); };
@@ -220,14 +229,15 @@ export default function Users() {
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button size="icon" variant="ghost" onClick={()=>startEdit(r)}><Pencil className="h-4 w-4" /></Button>
-                <Button size="icon" variant="ghost" onClick={()=>remove(r)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <Button size="icon" variant="ghost" title="Resend Invite" onClick={()=>resendInvite(r)}><Mail className="h-4 w-4 text-primary" /></Button>
+                <Button size="icon" variant="ghost" title="Edit User" onClick={()=>startEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" title="Delete User" onClick={()=>remove(r)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
               </div>
             </div>
           ))}
         </div>
         <table className="data-table w-full hidden md:table">
-          <thead><tr><th>User</th><th>Email</th><th>Phone</th><th>Role</th><th>Quick change</th><th></th></tr></thead>
+          <thead><tr><th>User</th><th>Email</th><th>Phone</th><th>Role</th><th>Quick change</th><th>Actions</th></tr></thead>
           <tbody>
             {rows.map((r)=>(
               <tr key={r.id}>
@@ -246,9 +256,10 @@ export default function Users() {
                     </SelectContent>
                   </Select>
                 </td>
-                <td className="text-right whitespace-nowrap">
-                  <Button size="icon" variant="ghost" onClick={()=>startEdit(r)}><Pencil className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="ghost" onClick={()=>remove(r)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <td className="text-right whitespace-nowrap space-x-1">
+                  <Button size="icon" variant="ghost" title="Resend Invite" onClick={()=>resendInvite(r)}><Mail className="h-4 w-4 text-primary" /></Button>
+                  <Button size="icon" variant="ghost" title="Edit User" onClick={()=>startEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" title="Delete User" onClick={()=>remove(r)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </td>
               </tr>
             ))}

@@ -1,4 +1,4 @@
-// Admin user management: create / update / delete members
+// Admin user management: create / update / delete members & resend invite
 // deno-lint-ignore-file
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     const action = body.action as string;
 
     if (action === "create") {
-      const { email, password, full_name, phone, role } = body;
+      const { email, password, full_name, phone, role, send_invite } = body;
       if (!email || !password || !role) return json({ error: "email, password, role required" }, 400);
       const { data: created, error } = await admin.auth.admin.createUser({
         email, password, email_confirm: true,
@@ -44,7 +44,32 @@ Deno.serve(async (req) => {
       // replace role
       await admin.from("user_roles").delete().eq("user_id", uid);
       await admin.from("user_roles").insert({ user_id: uid, role });
+
+      // Automatically send invitation email if requested or by default
+      if (send_invite !== false) {
+        try {
+          await admin.auth.admin.inviteUserByEmail(email);
+        } catch { /* noop */ }
+      }
+
       return json({ ok: true, user_id: uid });
+    }
+
+    if (action === "resend_invite") {
+      const { email, user_id } = body;
+      let targetEmail = email;
+      if (!targetEmail && user_id) {
+        const { data: userData } = await admin.auth.admin.getUserById(user_id);
+        targetEmail = userData?.user?.email;
+      }
+      if (!targetEmail) return json({ error: "email or user_id required" }, 400);
+      
+      const { error } = await admin.auth.admin.inviteUserByEmail(targetEmail);
+      if (error) {
+        const { error: resetErr } = await admin.auth.admin.generateLink({ type: "recovery", email: targetEmail });
+        if (resetErr) return json({ error: error.message || resetErr.message }, 400);
+      }
+      return json({ ok: true });
     }
 
     if (action === "update") {
