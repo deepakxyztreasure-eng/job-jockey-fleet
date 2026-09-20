@@ -8,6 +8,29 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+async function sendResendEmail(toEmail: string, subject: string, html: string) {
+  const apiKey = Deno.env.get("RESEND_API_KEY");
+  if (!apiKey) return false;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        from: "Jodha Group <noreply@jodhagroup.app>",
+        to: [toEmail],
+        subject,
+        html,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -75,7 +98,18 @@ Deno.serve(async (req) => {
         }
       } catch { /* noop */ }
 
-      // Attempt sending invitation email via Supabase Auth
+      // Attempt sending email via Resend and Supabase Auth
+      if (actionLink) {
+        const html = `
+          <h2>Welcome to Jodha Group Fleet Management</h2>
+          <p>Hello ${full_name || email},</p>
+          <p>An account has been set up for you. Click the button below to log in and set your account password:</p>
+          <p><a href="${actionLink}" style="padding: 10px 18px; background-color: #0f172a; color: white; text-decoration: none; border-radius: 6px; display: inline-block;">Set Up Account & Login</a></p>
+          <p>Or copy this link into your browser:<br/><code>${actionLink}</code></p>
+        `;
+        await sendResendEmail(email, "Welcome to Jodha Group - Set Up Your Account", html);
+      }
+
       try {
         await admin.auth.admin.inviteUserByEmail(email);
       } catch { /* noop */ }
@@ -102,13 +136,7 @@ Deno.serve(async (req) => {
       let actionLink: string | null = null;
       let emailSent = false;
 
-      // 1. Try sending invitation email
-      const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(targetEmail);
-      if (!inviteErr) {
-        emailSent = true;
-      }
-
-      // 2. Generate recovery / setup link as fallback or for manual copying
+      // 1. Generate recovery / setup link
       try {
         const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
           type: "recovery",
@@ -118,6 +146,25 @@ Deno.serve(async (req) => {
           actionLink = linkData.properties.action_link;
         }
       } catch { /* noop */ }
+
+      // 2. Try Resend custom email delivery
+      if (actionLink) {
+        const html = `
+          <h2>Jodha Group Fleet Management - Account Setup</h2>
+          <p>Hello,</p>
+          <p>Here is your requested login setup link. Click the button below to log in or reset your password:</p>
+          <p><a href="${actionLink}" style="padding: 10px 18px; background-color: #0f172a; color: white; text-decoration: none; border-radius: 6px; display: inline-block;">Access Account & Set Password</a></p>
+          <p>Or copy this link into your browser:<br/><code>${actionLink}</code></p>
+        `;
+        const resendOk = await sendResendEmail(targetEmail, "Jodha Group Account Invitation & Setup", html);
+        if (resendOk) emailSent = true;
+      }
+
+      // 3. Try standard Supabase Auth invite
+      const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(targetEmail);
+      if (!inviteErr) {
+        emailSent = true;
+      }
 
       return json({
         ok: true,
