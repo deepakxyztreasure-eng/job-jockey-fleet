@@ -329,8 +329,13 @@ export default function Jobs() {
         : supabase.rpc("list_drivers_directory");
 
       const creatorsQuery = (async () => {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .in("role", ["super_admin", "dispatch_admin", "member"]);
+        const creatorUserIds = (roles ?? []).map((r: any) => r.user_id);
         const { data: profs } = await supabase.from("profiles").select("id, full_name, email").order("full_name");
-        return { data: profs ?? [], error: null };
+        return { data: profs ?? [], creatorUserIds, error: null };
       })();
 
       const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes, settingsRes, permRes, profsRes] = await Promise.all([
@@ -373,7 +378,9 @@ export default function Jobs() {
       const profMap = new Map(profs.map((p: any) => [p.id, p]));
 
       if (profs.length > 0) {
-        setCreators(profs.map((p: any) => ({ id: p.id, name: p.full_name || p.email || "Member", email: p.email })));
+        const creatorSet = new Set(profsRes?.creatorUserIds ?? []);
+        const creatorProfs = profs.filter((p: any) => creatorSet.has(p.id));
+        setCreators(creatorProfs.map((p: any) => ({ id: p.id, name: p.full_name || p.email || "Member", email: p.email })));
       }
 
       const enrichedFirst = (firstPage ?? []).map((j: any) => ({
@@ -1882,6 +1889,7 @@ export default function Jobs() {
                 <th>Pickup</th>
                 <th>Delivery</th>
                 <th>Driver</th>
+                <th>Created By</th>
                 <th>Invoice</th>
                 <th>Time</th>
                 <th>Payment</th>
@@ -1894,14 +1902,14 @@ export default function Jobs() {
                 Array.from({ length: 6 }).map((_, idx) => (
                   <tr key={idx} className="animate-pulse">
                     {isAdmin && <td><div className="h-4 w-4 bg-muted rounded" /></td>}
-                    <td colSpan={10}>
+                    <td colSpan={11}>
                       <div className="h-6 bg-muted rounded w-full my-1" />
                     </td>
                   </tr>
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center text-muted-foreground py-8">
+                  <td colSpan={12} className="text-center text-muted-foreground py-8">
                     No jobs match filters
                   </td>
                 </tr>
@@ -1909,7 +1917,7 @@ export default function Jobs() {
               {!loadingJobs && groupedJobs.map((group) => (
                 <Fragment key={group.id}>
                   <tr className="bg-muted/50 font-semibold border-y">
-                    <td colSpan={isAdmin ? 11 : 10} className="py-2.5 px-4">
+                    <td colSpan={isAdmin ? 12 : 11} className="py-2.5 px-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${group.badgeBg}`}>
@@ -1985,6 +1993,14 @@ export default function Jobs() {
                       </td>
                       <td className="text-muted-foreground">
                         {j.drivers?.full_name ?? <span className="italic">Unassigned</span>}
+                      </td>
+                      <td className="text-xs">
+                        <div className="font-medium text-foreground">{j.creator?.full_name ?? "—"}</div>
+                        {j.created_at && (
+                          <div className="text-[10px] text-muted-foreground">
+                            {format(new Date(j.created_at), "MMM d, h:mm a")}
+                          </div>
+                        )}
                       </td>
                       <td className="font-mono text-xs">{j.invoice_number}</td>
                       <td className="text-xs">
