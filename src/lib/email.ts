@@ -10,7 +10,7 @@ export interface SendInviteParams {
 }
 
 export async function sendInvitationEmail({ email, fullName, role }: SendInviteParams): Promise<{ ok: boolean; message: string; actionLink?: string }> {
-  const loginUrl = `${window.location.origin}/auth`;
+  const loginUrl = `${window.location.origin}/auth?mode=set-password#set-password`;
 
   // 1. Attempt Native Auth password reset trigger
   try {
