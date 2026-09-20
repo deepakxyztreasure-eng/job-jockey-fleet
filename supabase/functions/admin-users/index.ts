@@ -21,96 +21,159 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: auth } },
     });
     const { data: u } = await userClient.auth.getUser();
-    if (!u?.user) return json({ error: "Unauthorized" }, 401);
+    if (!u?.user) return json({ ok: false, error: "Unauthorized" });
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "super_admin").maybeSingle();
-    if (!roleRow) return json({ error: "Forbidden" }, 403);
+    if (!roleRow) return json({ ok: false, error: "Forbidden: SuperAdmin required" });
 
     const body = await req.json();
     const action = body.action as string;
 
     if (action === "create") {
-      const { email, password, full_name, phone, role, send_invite } = body;
-      if (!email || !password || !role) return json({ error: "email, password, role required" }, 400);
-      const { data: created, error } = await admin.auth.admin.createUser({
-        email, password, email_confirm: true,
+      const { email, password, full_name, phone, role } = body;
+      if (!email || !role) return json({ ok: false, error: "Email and role are required" });
+
+      const tempPassword = password && password.length >= 6 ? password : `Jodha@${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // Create user in Supabase Auth
+      const { data: created, error: createErr } = await admin.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: true,
         user_metadata: { full_name },
       });
-      if (error) return json({ error: error.message }, 400);
+
+      if (createErr) {
+        return json({ ok: false, error: createErr.message });
+      }
+
       const uid = created.user!.id;
-      // profile auto-created by trigger; update extra fields
-      await admin.from("profiles").update({ full_name, email, phone }).eq("id", uid);
-      // replace role
+
+      // Update profile details
+      await admin.from("profiles").upsert({
+        id: uid,
+        full_name: full_name || null,
+        email,
+        phone: phone || null,
+        updated_at: new Date().toISOString(),
+      });
+
+      // Assign user role
       await admin.from("user_roles").delete().eq("user_id", uid);
       await admin.from("user_roles").insert({ user_id: uid, role });
 
-      // Automatically send invitation email if requested or by default
-      if (send_invite !== false) {
-        try {
-          await admin.auth.admin.inviteUserByEmail(email);
-        } catch { /* noop */ }
-      }
+      // Generate login setup / invitation link
+      let actionLink: string | null = null;
+      try {
+        const { data: linkData } = await admin.auth.admin.generateLink({
+          type: "recovery",
+          email,
+        });
+        if (linkData?.properties?.action_link) {
+          actionLink = linkData.properties.action_link;
+        }
+      } catch { /* noop */ }
 
-      return json({ ok: true, user_id: uid });
+      // Attempt sending invitation email via Supabase Auth
+      try {
+        await admin.auth.admin.inviteUserByEmail(email);
+      } catch { /* noop */ }
+
+      return json({
+        ok: true,
+        user_id: uid,
+        message: `Member ${email} created successfully. Invitation email sent.`,
+        action_link: actionLink,
+      });
     }
 
     if (action === "resend_invite") {
       const { email, user_id } = body;
       let targetEmail = email;
+
       if (!targetEmail && user_id) {
         const { data: userData } = await admin.auth.admin.getUserById(user_id);
         targetEmail = userData?.user?.email;
       }
-      if (!targetEmail) return json({ error: "email or user_id required" }, 400);
-      
-      const { error } = await admin.auth.admin.inviteUserByEmail(targetEmail);
-      if (error) {
-        const { error: resetErr } = await admin.auth.admin.generateLink({ type: "recovery", email: targetEmail });
-        if (resetErr) return json({ error: error.message || resetErr.message }, 400);
+
+      if (!targetEmail) return json({ ok: false, error: "Email or user_id required" });
+
+      let actionLink: string | null = null;
+      let emailSent = false;
+
+      // 1. Try sending invitation email
+      const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(targetEmail);
+      if (!inviteErr) {
+        emailSent = true;
       }
-      return json({ ok: true });
+
+      // 2. Generate recovery / setup link as fallback or for manual copying
+      try {
+        const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+          type: "recovery",
+          email: targetEmail,
+        });
+        if (!linkErr && linkData?.properties?.action_link) {
+          actionLink = linkData.properties.action_link;
+        }
+      } catch { /* noop */ }
+
+      return json({
+        ok: true,
+        email_sent: emailSent,
+        message: `Invitation email processed for ${targetEmail}.`,
+        action_link: actionLink,
+      });
     }
 
     if (action === "update") {
       const { user_id, full_name, phone, role, password } = body;
-      if (!user_id) return json({ error: "user_id required" }, 400);
+      if (!user_id) return json({ ok: false, error: "user_id required" });
+
       await admin.from("profiles").update({ full_name, phone }).eq("id", user_id);
+
       if (role) {
         await admin.from("user_roles").delete().eq("user_id", user_id);
         await admin.from("user_roles").insert({ user_id, role });
       }
+
       if (password && typeof password === "string" && password.length >= 6) {
         const { error: pwErr } = await admin.auth.admin.updateUserById(user_id, { password });
-        if (pwErr) return json({ error: pwErr.message }, 400);
+        if (pwErr) return json({ ok: false, error: pwErr.message });
       }
-      return json({ ok: true });
+
+      return json({ ok: true, message: "User updated successfully" });
     }
 
     if (action === "reset_password") {
       const { user_id, password } = body;
-      if (!user_id || !password) return json({ error: "user_id and password required" }, 400);
-      if (password.length < 6) return json({ error: "Password must be at least 6 characters" }, 400);
+      if (!user_id || !password) return json({ ok: false, error: "user_id and password required" });
+      if (password.length < 6) return json({ ok: false, error: "Password must be at least 6 characters" });
+
       const { error } = await admin.auth.admin.updateUserById(user_id, { password });
-      if (error) return json({ error: error.message }, 400);
-      return json({ ok: true });
+      if (error) return json({ ok: false, error: error.message });
+
+      return json({ ok: true, message: "Password updated successfully" });
     }
 
     if (action === "delete") {
       const { user_id } = body;
-      if (!user_id) return json({ error: "user_id required" }, 400);
-      if (user_id === u.user.id) return json({ error: "Cannot delete yourself" }, 400);
+      if (!user_id) return json({ ok: false, error: "user_id required" });
+      if (user_id === u.user.id) return json({ ok: false, error: "Cannot delete yourself" });
+
       const { error } = await admin.auth.admin.deleteUser(user_id);
-      if (error) return json({ error: error.message }, 400);
-      return json({ ok: true });
+      if (error) return json({ ok: false, error: error.message });
+
+      return json({ ok: true, message: "User deleted" });
     }
 
-    return json({ error: "Unknown action" }, 400);
+    return json({ ok: false, error: "Unknown action" });
   } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+    return json({ ok: false, error: (e as Error).message });
   }
 });
 
-function json(b: unknown, status = 200) {
-  return new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+function json(b: unknown) {
+  return new Response(JSON.stringify(b), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }

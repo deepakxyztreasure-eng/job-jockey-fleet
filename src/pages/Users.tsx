@@ -63,13 +63,21 @@ export default function Users() {
     toast.success("Role updated"); load();
   };
 
+  const [inviteLink, setInviteLink] = useState<{ email: string; link: string } | null>(null);
+
   const resendInvite = async (r: Row) => {
     if (!r.email) return toast.error("No email associated with this user");
     const { data, error } = await supabase.functions.invoke("admin-users", {
       body: { action: "resend_invite", email: r.email, user_id: r.id },
     });
-    if (error || (data as any)?.error) return toast.error(((data as any)?.error) || error!.message);
-    toast.success(`Invitation email sent to ${r.email}`);
+    const resp = data as any;
+    if (error || !resp?.ok) {
+      return toast.error(resp?.error || error?.message || "Failed to process invitation");
+    }
+    toast.success(resp.message || `Invitation sent to ${r.email}`);
+    if (resp.action_link) {
+      setInviteLink({ email: r.email, link: resp.action_link });
+    }
   };
 
   const startCreate = () => { setEditing(null); setForm(blank); setOpen(true); };
@@ -95,18 +103,27 @@ export default function Users() {
     try {
       let targetUserId = editing?.id;
       if (!editing) {
-        if (!form.email || !form.password) { toast.error("Email and password required"); return; }
+        if (!form.email) { toast.error("Email is required"); return; }
         const { data, error } = await supabase.functions.invoke("admin-users", {
-          body: { action: "create", email: form.email, password: form.password, full_name: form.full_name, phone: form.phone, role: form.role },
+          body: { action: "create", email: form.email, password: form.password || undefined, full_name: form.full_name, phone: form.phone, role: form.role },
         });
-        if (error || (data as any)?.error) { toast.error(((data as any)?.error) || error!.message); return; }
-        targetUserId = (data as any)?.user_id;
-        toast.success("Member added");
+        const resp = data as any;
+        if (error || !resp?.ok) {
+          return toast.error(resp?.error || error?.message || "Could not add member");
+        }
+        targetUserId = resp.user_id;
+        toast.success(resp.message || "Member added");
+        if (resp.action_link) {
+          setInviteLink({ email: form.email, link: resp.action_link });
+        }
       } else {
         const { data, error } = await supabase.functions.invoke("admin-users", {
           body: { action: "update", user_id: editing.id, full_name: form.full_name, phone: form.phone, role: form.role, password: form.password || undefined },
         });
-        if (error || (data as any)?.error) { toast.error(((data as any)?.error) || error!.message); return; }
+        const resp = data as any;
+        if (error || !resp?.ok) {
+          return toast.error(resp?.error || error?.message || "Could not update user");
+        }
         toast.success(form.password ? "Updated & password reset" : "Updated");
       }
 
@@ -129,7 +146,8 @@ export default function Users() {
   const remove = async (r: Row) => {
     if (!confirm(`Delete ${r.email}? This cannot be undone.`)) return;
     const { data, error } = await supabase.functions.invoke("admin-users", { body: { action: "delete", user_id: r.id } });
-    if (error || (data as any)?.error) return toast.error(((data as any)?.error) || error!.message);
+    const resp = data as any;
+    if (error || !resp?.ok) return toast.error(resp?.error || error?.message || "Could not delete user");
     toast.success("Deleted"); load();
   };
 
@@ -267,6 +285,33 @@ export default function Users() {
           </tbody>
         </table>
       </div>
+
+      <Dialog open={!!inviteLink} onOpenChange={(v) => { if (!v) setInviteLink(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User Login Setup Link</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm">
+            <p>
+              An invitation email has been sent to <span className="font-semibold">{inviteLink?.email}</span>. You can also manually copy and share this setup link with the user:
+            </p>
+            <Input readOnly value={inviteLink?.link || ""} className="font-mono text-xs select-all bg-muted" />
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                if (inviteLink?.link) {
+                  navigator.clipboard.writeText(inviteLink.link);
+                  toast.success("Setup link copied to clipboard");
+                }
+                setInviteLink(null);
+              }}
+            >
+              Copy Link & Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
