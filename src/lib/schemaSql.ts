@@ -250,6 +250,8 @@ create policy "profiles_update_own" on public.profiles for update to authenticat
   using (id = auth.uid()) with check (id = auth.uid());
 create policy "profiles_admin_update" on public.profiles for update to authenticated
   using (public.has_role(auth.uid(),'super_admin'));
+create policy "profiles_admin_all" on public.profiles for all to authenticated
+  using (public.has_role(auth.uid(),'super_admin')) with check (public.has_role(auth.uid(),'super_admin'));
 
 create policy "user_roles_select_self_or_admin" on public.user_roles for select to authenticated
   using (user_id = auth.uid() or public.has_role(auth.uid(),'super_admin'));

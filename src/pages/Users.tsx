@@ -70,7 +70,11 @@ export default function Users() {
   const resendInvite = async (r: Row) => {
     if (!r.email) return toast.error("No email associated with this user");
     const result = await sendInvitationEmail({ email: r.email, fullName: r.full_name, role: r.role });
-    toast.success(result.message || `Invitation sent to ${r.email}`);
+    if (result.ok) {
+      toast.success(result.message || `Invitation sent to ${r.email}`);
+    } else {
+      toast.error(result.message || `Could not send email to ${r.email}`);
+    }
     if (result.actionLink) {
       setInviteLink({ email: r.email, link: result.actionLink });
     }
@@ -113,7 +117,11 @@ export default function Users() {
         targetUserId = newUid;
 
         const inviteResult = await sendInvitationEmail({ email: form.email, fullName: form.full_name, role: form.role });
-        toast.success(inviteResult.message || "Member added successfully");
+        if (inviteResult.ok) {
+          toast.success(inviteResult.message || "Member added successfully");
+        } else {
+          toast.warning(inviteResult.message || "User created, but email could not be sent.");
+        }
         if (inviteResult.actionLink) {
           setInviteLink({ email: form.email, link: inviteResult.actionLink });
         }
