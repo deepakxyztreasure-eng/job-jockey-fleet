@@ -22,18 +22,20 @@ export default async function handler(req: any, res: any) {
     const apiKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY || "";
     const roleLabel = (role || "member").replace("_", " ").toUpperCase();
     const displayName = fullName || to;
-    const targetUrl = loginUrl || "https://staging.jodhagroup.app/auth?mode=set-password#set-password";
+    const ts = Date.now();
+    const targetUrl = loginUrl || `https://staging.jodhagroup.app/auth?mode=set-password&email=${encodeURIComponent(to)}&ts=${ts}#set-password`;
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
         <h2 style="color: #0f172a; margin-top: 0;">Welcome to Jodha Group Fleet Management</h2>
         <p>Hello <strong>${displayName}</strong>,</p>
         <p>An account has been configured for you on the <strong>Jodha Group Fleet App</strong> with role: <strong>${roleLabel}</strong>.</p>
-        <p>Please click the button below to access your account and set up your login password:</p>
+        <p>Please click the button below to set up your account password. <strong>Note: This link is valid for 15 minutes only.</strong></p>
         <p style="margin: 25px 0;">
           <a href="${targetUrl}" style="background-color: #0f172a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Set Up Password & Login</a>
         </p>
         <p style="color: #64748b; font-size: 13px;">Or copy and paste this link into your browser:<br/><a href="${targetUrl}" style="color: #2563eb;">${targetUrl}</a></p>
+        <p style="color: #ef4444; font-size: 12px; font-weight: bold; margin-top: 15px;">⏱️ Link expires in 15 minutes for security reasons.</p>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
         <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">Jodha Group Transport & Fleet Services</p>
       </div>
@@ -49,7 +51,7 @@ export default async function handler(req: any, res: any) {
       body: JSON.stringify({
         from: "Jodha Group <onboarding@resend.dev>",
         to: Array.isArray(to) ? to : [to],
-        subject: "Welcome to Jodha Group - Set Up Your Account",
+        subject: "Welcome to Jodha Group - Set Up Your Account (Valid 15 Mins)",
         html: htmlContent,
       }),
     });
