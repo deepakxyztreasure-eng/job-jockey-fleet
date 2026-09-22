@@ -182,14 +182,15 @@ export default function Jobs() {
   }, [isAdmin, userPerm, appSettings]);
 
   const canAssign = useMemo(() => {
+    if (isDriver) return false;
     if (isAdmin || isDispatch) return true;
     if (userPerm?.can_assign_jobs !== null && userPerm?.can_assign_jobs !== undefined) {
       return userPerm.can_assign_jobs;
     }
     return appSettings.allow_member_job_assign;
-  }, [isAdmin, isDispatch, userPerm, appSettings]);
+  }, [isAdmin, isDispatch, isDriver, userPerm, appSettings]);
 
-  const isAssigner = isAdmin || isDispatch || canAssign; // can assign/unassign drivers
+  const isAssigner = (isAdmin || isDispatch || canAssign) && !isDriver; // can assign/unassign drivers
 
   // Driver completion modal
   const [completeFor, setCompleteFor] = useState<any | null>(null);
@@ -2114,7 +2115,7 @@ export default function Jobs() {
                             Duplicate
                           </Button>
                         )}
-                        {(isDispatch || canAssign) && (
+                        {isAssigner && (
                           <>
                             <Button size="sm" variant="outline" onClick={() => openAssign(j)} className="ml-1">
                               <UserPlus className="h-4 w-4 mr-1" />
