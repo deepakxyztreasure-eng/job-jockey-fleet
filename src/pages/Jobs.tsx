@@ -1101,7 +1101,8 @@ export default function Jobs() {
   };
 
   const updatePayment = async (j: any, status: string) => {
-    if (status === "paid" && (j.cod || j.payment_kind === "cod") && !isAdmin) {
+    const isCashJob = Boolean(j.cod || j.payment_kind === "cod");
+    if (isCashJob && !isAdmin) {
       return toast.error("Only Gurinder (Admin) can clear cash payments");
     }
     setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, payment_status: status } : item)));
@@ -1113,6 +1114,7 @@ export default function Jobs() {
       load();
       return toast.error(error.message);
     }
+    toast.success("Payment status updated");
   };
 
   return (
@@ -1785,7 +1787,7 @@ export default function Jobs() {
                   {!(isDriver && !j.cod) && (
                     <div>
                       <div className="text-muted-foreground">Payment</div>
-                      {isAdmin ? (
+                      {!isDriver ? (
                         <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
                           <SelectTrigger className="h-7 text-[11px]">
                             <SelectValue />
@@ -2022,7 +2024,7 @@ export default function Jobs() {
                         )}
                       </td>
                       <td>
-                        {isAdmin ? (
+                        {!isDriver ? (
                           <Select value={j.payment_status} onValueChange={(v) => updatePayment(j, v)}>
                             <SelectTrigger className="h-8 w-[110px]">
                               <SelectValue />
