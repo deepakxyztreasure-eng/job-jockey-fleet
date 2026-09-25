@@ -108,6 +108,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           : roles.includes("member")
             ? "member"
             : null;
+    if (r === "driver") {
+      // Link this login to its driver record (by email) so assigned jobs become visible
+      try { await (supabase as any).rpc("link_driver_account"); } catch (e) { console.error("link driver", e); }
+    }
     setRole(r);
     setLoading(false);
     if (r === "driver") {
