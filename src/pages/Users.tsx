@@ -138,6 +138,31 @@ export default function Users() {
         }
       }
 
+      if (form.role === "driver" && targetUserId) {
+        const targetEmail = (form.email || editing?.email || "").trim();
+        if (targetEmail) {
+          const { data: existingDrv } = await supabase
+            .from("drivers")
+            .select("id, user_id")
+            .ilike("email", targetEmail)
+            .maybeSingle();
+
+          if (existingDrv) {
+            if (!existingDrv.user_id) {
+              await supabase.from("drivers").update({ user_id: targetUserId }).eq("id", existingDrv.id);
+            }
+          } else {
+            await supabase.from("drivers").insert({
+              full_name: form.full_name || targetEmail.split("@")[0],
+              email: targetEmail,
+              phone: form.phone || null,
+              user_id: targetUserId,
+              active: true,
+            });
+          }
+        }
+      }
+
       // Save user-wise direct edit & job assign permission overrides
       if (targetUserId && (form.role === "member" || form.role === "dispatch_admin")) {
         const valEdit = form.can_direct_edit === "true" ? true : form.can_direct_edit === "false" ? false : null;
