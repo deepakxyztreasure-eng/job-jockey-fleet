@@ -245,6 +245,30 @@ export default function Jobs() {
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
 
+  const [resolvedDriverId, setResolvedDriverId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isDriver && user) {
+      (async () => {
+        let drvId: string | null = null;
+        if (user.id) {
+          const { data: drvByUid } = await supabase.from("drivers").select("id, user_id").eq("user_id", user.id).maybeSingle();
+          if (drvByUid) drvId = drvByUid.id;
+        }
+        if (!drvId && user.email) {
+          const { data: drvByEmail } = await supabase.from("drivers").select("id, user_id").ilike("email", user.email).maybeSingle();
+          if (drvByEmail) {
+            drvId = drvByEmail.id;
+            if (!drvByEmail.user_id && user.id) {
+              await supabase.from("drivers").update({ user_id: user.id }).eq("id", drvByEmail.id);
+            }
+          }
+        }
+        if (drvId) setResolvedDriverId(drvId);
+      })();
+    }
+  }, [isDriver, user?.id, user?.email]);
+
   const buildJobsQuery = (pageNumber: number, pageSize: number) => {
     let q = supabase.from("jobs").select("*");
 
@@ -256,6 +280,10 @@ export default function Jobs() {
 
     if (isMember && user?.id) {
       q = q.eq("created_by", user.id);
+    }
+
+    if (isDriver && resolvedDriverId) {
+      q = q.eq("assigned_driver_id", resolvedDriverId);
     }
 
     const term = search.trim();
