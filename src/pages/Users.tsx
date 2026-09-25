@@ -102,30 +102,35 @@ export default function Users() {
     setBusy(true);
     try {
       let targetUserId = editing?.id;
+
       if (!editing) {
+        // --- CREATE: use the admin-users Edge Function which creates a REAL auth.users entry ---
+        // Using crypto.randomUUID() here was the root cause bug: it generated a fake UUID that
+        // never matched auth.uid(), so all Supabase RLS policies (jobs, drivers, user_roles) failed.
         if (!form.email) { toast.error("Email is required"); return; }
-        const newUid = crypto.randomUUID();
-        const { error: profErr } = await supabase.from("profiles").insert({
-          id: newUid,
-          full_name: form.full_name || null,
-          email: form.email,
-          phone: form.phone || null,
+
+        const { data: fnRes, error: fnErr } = await supabase.functions.invoke("admin-users", {
+          body: {
+            action: "create",
+            email: form.email,
+            full_name: form.full_name || null,
+            phone: form.phone || null,
+            role: form.role,
+          },
         });
-        if (profErr) { toast.error(profErr.message); return; }
 
-        await supabase.from("user_roles").insert({ user_id: newUid, role: form.role });
-        targetUserId = newUid;
-
-        const inviteResult = await sendInvitationEmail({ email: form.email, fullName: form.full_name, role: form.role });
-        if (inviteResult.ok) {
-          toast.success(inviteResult.message || "Member added successfully");
-        } else {
-          toast.warning(inviteResult.message || "User created, but email could not be sent.");
+        if (fnErr || !fnRes?.ok) {
+          toast.error(fnRes?.error || fnErr?.message || "Failed to create user");
+          return;
         }
-        if (inviteResult.actionLink) {
-          setInviteLink({ email: form.email, link: inviteResult.actionLink });
+
+        targetUserId = fnRes.user_id;
+        toast.success(fnRes.message || "User created successfully");
+        if (fnRes.action_link) {
+          setInviteLink({ email: form.email, link: fnRes.action_link });
         }
       } else {
+        // --- UPDATE: update profile and role ---
         const { error: profErr } = await supabase.from("profiles").update({ full_name: form.full_name, phone: form.phone }).eq("id", editing.id);
         if (profErr) { toast.error(profErr.message); return; }
 
