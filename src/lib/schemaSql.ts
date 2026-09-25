@@ -231,55 +231,10 @@ begin
 end; $$;
 
 create or replace function public.list_drivers_directory()
-returns table (id uuid, full_name text, active boolean, user_id uuid, email text)
+returns table (id uuid, full_name text, active boolean, user_id uuid)
 language sql stable security definer set search_path = public as $$
-  select id, full_name, active, user_id, email from public.drivers order by full_name;
+  select id, full_name, active, user_id from public.drivers order by full_name;
 $$;
-
-create or replace function public.get_driver_jobs(p_user_id uuid, p_email text, p_history boolean default false)
-returns setof public.jobs
-language plpgsql security definer set search_path = public as $$
-begin
-  if p_user_id is not null and p_email is not null then
-    update public.drivers
-    set user_id = p_user_id
-    where user_id is null and lower(email) = lower(p_email);
-  end if;
-
-  if p_history then
-    return query
-    select j.* from public.jobs j
-    join public.drivers d on j.assigned_driver_id = d.id
-    where (d.user_id = p_user_id or (d.email is not null and lower(d.email) = lower(p_email)))
-      and j.status in ('completed', 'rejected')
-    order by j.created_at desc;
-  else
-    return query
-    select j.* from public.jobs j
-    join public.drivers d on j.assigned_driver_id = d.id
-    where (d.user_id = p_user_id or (d.email is not null and lower(d.email) = lower(p_email)))
-      and j.status not in ('completed', 'rejected')
-    order by j.scheduled_date asc, j.start_time asc, j.created_at desc;
-  end if;
-end; $$;
-
-create or replace function public.update_driver_job_status(
-  p_job_id uuid,
-  p_status text,
-  p_notes text default null,
-  p_proof_url text default null
-)
-returns void
-language plpgsql security definer set search_path = public as $$
-begin
-  update public.jobs
-  set status = p_status::public.job_status,
-      completion_notes = coalesce(p_notes, completion_notes),
-      proof_image_url = coalesce(p_proof_url, proof_image_url),
-      actual_start_time = case when p_status = 'in_progress' and actual_start_time is null then now() else actual_start_time end,
-      completion_requested_at = case when p_status = 'completion_requested' then now() else completion_requested_at end
-  where id = p_job_id;
-end; $$;
 
 do $$ declare t text; begin
   foreach t in array array['drivers','job_titles','jobs','profiles','store_locations','driver_sessions'] loop
@@ -317,17 +272,7 @@ create policy "user_roles_select_self_or_admin" on public.user_roles for select 
 create policy "user_roles_admin_all" on public.user_roles for all to authenticated
   using (public.has_role(auth.uid(),'super_admin')) with check (public.has_role(auth.uid(),'super_admin'));
 
-create policy "drivers_select_self" on public.drivers for select to authenticated
-  using (
-    user_id = auth.uid()
-    or (
-      email is not null
-      and exists (
-        select 1 from public.profiles p
-        where p.id = auth.uid() and lower(p.email) = lower(public.drivers.email)
-      )
-    )
-  );
+create policy "drivers_select_self" on public.drivers for select to authenticated using (user_id = auth.uid());
 create policy "drivers_select_admin" on public.drivers for select to authenticated
   using (public.has_role(auth.uid(),'super_admin') or public.has_role(auth.uid(),'dispatch_admin'));
 create policy "drivers_admin_write" on public.drivers for all to authenticated
@@ -346,14 +291,7 @@ create policy "jobs_select_member_all" on public.jobs for select to authenticate
 create policy "jobs_select_dispatch" on public.jobs for select to authenticated using (public.has_role(auth.uid(),'dispatch_admin'));
 create policy "jobs_select_creator" on public.jobs for select to authenticated using (created_by = auth.uid());
 create policy "jobs_select_driver" on public.jobs for select to authenticated
-  using (
-    assigned_driver_id in (
-      select d.id from public.drivers d
-      left join public.profiles p on p.id = auth.uid()
-      where d.user_id = auth.uid()
-         or (d.email is not null and p.email is not null and lower(d.email) = lower(p.email))
-    )
-  );
+  using (assigned_driver_id in (select id from public.drivers where user_id = auth.uid()));
 create policy "jobs_insert_member_or_admin" on public.jobs for insert to authenticated
   with check (created_by = auth.uid() and (public.has_role(auth.uid(),'super_admin') or public.has_role(auth.uid(),'member')));
 create policy "jobs_update_admin" on public.jobs for update to authenticated
@@ -365,39 +303,9 @@ create policy "jobs_update_member" on public.jobs for update to authenticated
 create policy "jobs_update_creator" on public.jobs for update to authenticated
   using (created_by = auth.uid()) with check (created_by = auth.uid());
 create policy "jobs_update_driver" on public.jobs for update to authenticated
-  using (
-    assigned_driver_id in (
-      select d.id from public.drivers d
-      left join public.profiles p on p.id = auth.uid()
-      where d.user_id = auth.uid()
-         or (d.email is not null and p.email is not null and lower(d.email) = lower(p.email))
-    )
-  )
-  with check (
-    assigned_driver_id in (
-      select d.id from public.drivers d
-      left join public.profiles p on p.id = auth.uid()
-      where d.user_id = auth.uid()
-         or (d.email is not null and p.email is not null and lower(d.email) = lower(p.email))
-    )
-  );
+  using (assigned_driver_id in (select id from public.drivers where user_id = auth.uid()))
+  with check (assigned_driver_id in (select id from public.drivers where user_id = auth.uid()));
 create policy "jobs_delete_admin" on public.jobs for delete to authenticated using (public.has_role(auth.uid(),'super_admin'));
-
-create or replace function public.auto_link_driver_users()
-returns void language plpgsql security definer as $$
-begin
-  update public.drivers d
-  set user_id = p.id
-  from public.profiles p
-  where d.user_id is null
-    and d.email is not null
-    and lower(d.email) = lower(p.email);
-end; $$;
-
-do $$ begin
-  perform public.auto_link_driver_users();
-exception when others then null; end $$;
-
 
 create policy "driver_sessions_select_self" on public.driver_sessions for select to authenticated using (user_id = auth.uid());
 create policy "driver_sessions_select_admin" on public.driver_sessions for select to authenticated using (public.has_role(auth.uid(),'super_admin'));

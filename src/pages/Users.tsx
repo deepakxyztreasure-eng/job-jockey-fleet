@@ -138,13 +138,6 @@ export default function Users() {
         }
       }
 
-      if (form.role === "driver" && (form.email || editing?.email) && targetUserId) {
-        const userEmail = form.email || editing?.email;
-        if (userEmail) {
-          await supabase.from("drivers").update({ user_id: targetUserId }).ilike("email", userEmail);
-        }
-      }
-
       // Save user-wise direct edit & job assign permission overrides
       if (targetUserId && (form.role === "member" || form.role === "dispatch_admin")) {
         const valEdit = form.can_direct_edit === "true" ? true : form.can_direct_edit === "false" ? false : null;
