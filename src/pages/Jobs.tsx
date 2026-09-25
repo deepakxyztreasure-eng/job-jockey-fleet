@@ -437,6 +437,18 @@ export default function Jobs() {
     }
   };
 
+  // For drivers: call security-definer RPC to link their drivers.user_id before loading jobs.
+  // Direct UPDATE to drivers table fails silently for driver role (blocked by RLS admin-write policy).
+  // The RPC runs as DB superuser internally, so it can update the row safely.
+  useEffect(() => {
+    if (!isDriver || !user?.id) return;
+    (async () => {
+      await (supabase.rpc as any)("driver_self_link").catch(() => {});
+      // Reload jobs after linking so Supabase RLS now sees user_id = auth.uid()
+      load();
+    })();
+  }, [isDriver, user?.id]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       load();
