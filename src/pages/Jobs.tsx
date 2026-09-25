@@ -245,6 +245,22 @@ export default function Jobs() {
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
 
+  useEffect(() => {
+    if (isDriver && user?.id && user?.email) {
+      (async () => {
+        const { data: drv } = await supabase
+          .from("drivers")
+          .select("id, user_id")
+          .ilike("email", user.email!)
+          .maybeSingle();
+
+        if (drv && !drv.user_id) {
+          await supabase.from("drivers").update({ user_id: user.id }).eq("id", drv.id);
+        }
+      })();
+    }
+  }, [isDriver, user?.id, user?.email]);
+
   const buildJobsQuery = (pageNumber: number, pageSize: number) => {
     let q = supabase.from("jobs").select("*");
 
@@ -484,8 +500,12 @@ export default function Jobs() {
       const inHistory = (HISTORY_STATUSES as readonly string[]).includes(j.status);
       if (!historyMode && inHistory) return false;
       if (historyMode && !inHistory) return false;
-      if (isDriver) {
-        const currentDriver = drivers.find((d) => d.user_id === user?.id);
+      if (isDriver && user) {
+        const currentDriver = drivers.find(
+          (d) =>
+            (d.user_id && d.user_id === user.id) ||
+            (d.email && user.email && d.email.toLowerCase() === user.email.toLowerCase())
+        );
         if (currentDriver && j.assigned_driver_id !== currentDriver.id) return false;
       }
       if (words.length > 0) {
