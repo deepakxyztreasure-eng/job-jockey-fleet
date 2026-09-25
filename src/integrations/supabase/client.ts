@@ -1,14 +1,14 @@
 // Connected to external Supabase project (Lovable Cloud disabled)
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+// Typed loosely: external database schema differs from generated types
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "http://supabasekong-b2mjik4wa6bbiaejsfwofjbz.141.136.44.163.sslip.io";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://staging.jodhagroup.app";
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc4NzU4NzI2MCwiZXhwIjo0OTQzMjYwODYwLCJyb2xlIjoiYW5vbiJ9.KZsCarYscwU7CDT-LrzdXBwwJh0x509M6pIXOREFiwg";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     

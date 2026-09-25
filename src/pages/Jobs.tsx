@@ -243,14 +243,7 @@ export default function Jobs() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  useEffect(() => {
-    if (isDriver && user?.id && user?.email) {
-      (supabase.rpc as any)("link_driver_account", {
-        p_user_id: user.id,
-        p_email: user.email,
-      }).catch(() => {});
-    }
-  }, [isDriver, user?.id, user?.email]);
+  const PAGE_SIZE = 50;
 
   const buildJobsQuery = (pageNumber: number, pageSize: number) => {
     let q = supabase.from("jobs").select("*");
@@ -491,17 +484,9 @@ export default function Jobs() {
       const inHistory = (HISTORY_STATUSES as readonly string[]).includes(j.status);
       if (!historyMode && inHistory) return false;
       if (historyMode && !inHistory) return false;
-      if (isDriver && user) {
-        const myDriverIds = new Set(
-          drivers
-            .filter(
-              (d) =>
-                (d.user_id && d.user_id === user.id) ||
-                (d.email && user.email && d.email.toLowerCase() === user.email.toLowerCase())
-            )
-            .map((d) => d.id)
-        );
-        if (myDriverIds.size > 0 && !myDriverIds.has(j.assigned_driver_id)) return false;
+      if (isDriver) {
+        const currentDriver = drivers.find((d) => d.user_id === user?.id);
+        if (currentDriver && j.assigned_driver_id !== currentDriver.id) return false;
       }
       if (words.length > 0) {
         const hay =
@@ -938,7 +923,7 @@ export default function Jobs() {
           await supabase.storage.from("job-proofs").remove([oldClean]).catch(() => {});
         }
         if (result.optimized) {
-          toast.success(`Image optimized (${result.savings}% smaller)`);
+          toast.success(`Image optimized (${Math.round((1 - result.file.size / (result.originalSize || result.file.size)) * 100)}% smaller)`);
         }
       }
 
@@ -1286,7 +1271,7 @@ export default function Jobs() {
                         onValueChange={(v) =>
                           setForm({
                             ...form,
-                            payment_kind: v,
+                            payment_kind: v as "cod" | "invoice",
                             invoice_number: v === "invoice" ? form.invoice_number : "",
                             cod_amount: v === "cod" ? form.cod_amount : "",
                           })
