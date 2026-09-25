@@ -326,7 +326,7 @@ export default function Jobs() {
       setPage(0);
       setHasMore(true);
       const driversQuery = isAssigner
-        ? supabase.from("drivers").select("id,full_name,active,user_id").order("full_name")
+        ? supabase.from("drivers").select("id,full_name,active,user_id,email").order("full_name")
         : supabase.rpc("list_drivers_directory");
 
       const creatorsQuery = (async () => {

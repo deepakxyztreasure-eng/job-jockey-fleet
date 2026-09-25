@@ -231,9 +231,9 @@ begin
 end; $$;
 
 create or replace function public.list_drivers_directory()
-returns table (id uuid, full_name text, active boolean, user_id uuid)
+returns table (id uuid, full_name text, active boolean, user_id uuid, email text)
 language sql stable security definer set search_path = public as $$
-  select id, full_name, active, user_id from public.drivers order by full_name;
+  select id, full_name, active, user_id, email from public.drivers order by full_name;
 $$;
 
 do $$ declare t text; begin
@@ -272,7 +272,17 @@ create policy "user_roles_select_self_or_admin" on public.user_roles for select 
 create policy "user_roles_admin_all" on public.user_roles for all to authenticated
   using (public.has_role(auth.uid(),'super_admin')) with check (public.has_role(auth.uid(),'super_admin'));
 
-create policy "drivers_select_self" on public.drivers for select to authenticated using (user_id = auth.uid());
+create policy "drivers_select_self" on public.drivers for select to authenticated
+  using (
+    user_id = auth.uid()
+    or (
+      email is not null
+      and exists (
+        select 1 from public.profiles p
+        where p.id = auth.uid() and lower(p.email) = lower(public.drivers.email)
+      )
+    )
+  );
 create policy "drivers_select_admin" on public.drivers for select to authenticated
   using (public.has_role(auth.uid(),'super_admin') or public.has_role(auth.uid(),'dispatch_admin'));
 create policy "drivers_admin_write" on public.drivers for all to authenticated

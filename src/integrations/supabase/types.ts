@@ -500,6 +500,7 @@ export type Database = {
         Args: never
         Returns: {
           active: boolean
+          email: string
           full_name: string
           id: string
           user_id: string
