@@ -291,7 +291,14 @@ create policy "jobs_select_member_all" on public.jobs for select to authenticate
 create policy "jobs_select_dispatch" on public.jobs for select to authenticated using (public.has_role(auth.uid(),'dispatch_admin'));
 create policy "jobs_select_creator" on public.jobs for select to authenticated using (created_by = auth.uid());
 create policy "jobs_select_driver" on public.jobs for select to authenticated
-  using (assigned_driver_id in (select id from public.drivers where user_id = auth.uid()));
+  using (
+    assigned_driver_id in (
+      select d.id from public.drivers d
+      left join public.profiles p on p.id = auth.uid()
+      where d.user_id = auth.uid()
+         or (d.email is not null and p.email is not null and lower(d.email) = lower(p.email))
+    )
+  );
 create policy "jobs_insert_member_or_admin" on public.jobs for insert to authenticated
   with check (created_by = auth.uid() and (public.has_role(auth.uid(),'super_admin') or public.has_role(auth.uid(),'member')));
 create policy "jobs_update_admin" on public.jobs for update to authenticated
@@ -303,9 +310,39 @@ create policy "jobs_update_member" on public.jobs for update to authenticated
 create policy "jobs_update_creator" on public.jobs for update to authenticated
   using (created_by = auth.uid()) with check (created_by = auth.uid());
 create policy "jobs_update_driver" on public.jobs for update to authenticated
-  using (assigned_driver_id in (select id from public.drivers where user_id = auth.uid()))
-  with check (assigned_driver_id in (select id from public.drivers where user_id = auth.uid()));
+  using (
+    assigned_driver_id in (
+      select d.id from public.drivers d
+      left join public.profiles p on p.id = auth.uid()
+      where d.user_id = auth.uid()
+         or (d.email is not null and p.email is not null and lower(d.email) = lower(p.email))
+    )
+  )
+  with check (
+    assigned_driver_id in (
+      select d.id from public.drivers d
+      left join public.profiles p on p.id = auth.uid()
+      where d.user_id = auth.uid()
+         or (d.email is not null and p.email is not null and lower(d.email) = lower(p.email))
+    )
+  );
 create policy "jobs_delete_admin" on public.jobs for delete to authenticated using (public.has_role(auth.uid(),'super_admin'));
+
+create or replace function public.auto_link_driver_users()
+returns void language plpgsql security definer as $$
+begin
+  update public.drivers d
+  set user_id = p.id
+  from public.profiles p
+  where d.user_id is null
+    and d.email is not null
+    and lower(d.email) = lower(p.email);
+end; $$;
+
+do $$ begin
+  perform public.auto_link_driver_users();
+exception when others then null; end $$;
+
 
 create policy "driver_sessions_select_self" on public.driver_sessions for select to authenticated using (user_id = auth.uid());
 create policy "driver_sessions_select_admin" on public.driver_sessions for select to authenticated using (public.has_role(auth.uid(),'super_admin'));
