@@ -496,6 +496,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_driver_jobs: {
+        Args: {
+          p_email?: string
+          p_history?: boolean
+          p_user_id?: string
+        }
+        Returns: Database["public"]["Tables"]["jobs"]["Row"][]
+      }
       list_drivers_directory: {
         Args: never
         Returns: {
@@ -505,6 +513,15 @@ export type Database = {
           id: string
           user_id: string
         }[]
+      }
+      update_driver_job_status: {
+        Args: {
+          p_job_id: string
+          p_notes?: string
+          p_proof_url?: string
+          p_status: string
+        }
+        Returns: undefined
       }
       notify_admins: {
         Args: {

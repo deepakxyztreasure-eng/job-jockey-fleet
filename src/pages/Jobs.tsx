@@ -349,6 +349,20 @@ export default function Jobs() {
     return q.range(pageNumber * pageSize, (pageNumber + 1) * pageSize - 1);
   };
 
+  const fetchInitialJobs = async () => {
+    if (isDriver && user) {
+      const { data: rpcJobs, error: rpcErr } = await supabase.rpc("get_driver_jobs", {
+        p_user_id: user.id,
+        p_email: user.email ?? undefined,
+        p_history: historyMode,
+      });
+      if (!rpcErr && rpcJobs) {
+        return { data: rpcJobs, error: null };
+      }
+    }
+    return buildJobsQuery(0, PAGE_SIZE);
+  };
+
   const load = async () => {
     try {
       setPage(0);
@@ -368,7 +382,7 @@ export default function Jobs() {
       })();
 
       const [{ data: firstPage, error: firstErr }, locRes, drvRes, titlesRes, settingsRes, permRes, profsRes] = await Promise.all([
-        buildJobsQuery(0, PAGE_SIZE),
+        fetchInitialJobs(),
         supabase.from("store_locations").select("id,name,address,active").order("name"),
         driversQuery,
         supabase.from("job_titles").select("id,name,active,sort_order").order("name", { ascending: true }),
@@ -893,37 +907,33 @@ export default function Jobs() {
   // Driver actions
   const driverAccept = async (j: any) => {
     setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, status: "accepted" } : item)));
-    const { error } = await supabase
-      .from("jobs")
-      .update({ status: "accepted" as any })
-      .eq("id", j.id);
-    if (error) {
-      load();
-      return toast.error(error.message);
+    const { error: rpcErr } = await supabase.rpc("update_driver_job_status", { p_job_id: j.id, p_status: "accepted" });
+    if (rpcErr) {
+      const { error } = await supabase.from("jobs").update({ status: "accepted" as any }).eq("id", j.id);
+      if (error) { load(); return toast.error(error.message); }
     }
     toast.success("Job accepted");
   };
+
   const driverReject = async (j: any) => {
     if (!confirm("Reject this job?")) return;
     setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, status: "rejected", assigned_driver_id: null } : item)));
-    const { error } = await supabase
-      .from("jobs")
-      .update({ status: "rejected" as any, assigned_driver_id: null })
-      .eq("id", j.id);
-    if (error) {
-      load();
-      return toast.error(error.message);
+    const { error: rpcErr } = await supabase.rpc("update_driver_job_status", { p_job_id: j.id, p_status: "rejected" });
+    if (rpcErr) {
+      const { error } = await supabase.from("jobs").update({ status: "rejected" as any, assigned_driver_id: null }).eq("id", j.id);
+      if (error) { load(); return toast.error(error.message); }
     }
     toast.success("Job rejected");
   };
+
   const driverStart = async (j: any) => {
     const patch: any = { status: "in_progress" as any };
     if (!j.actual_start_time) patch.actual_start_time = new Date().toISOString();
     setJobs((prev) => prev.map((item) => (item.id === j.id ? { ...item, ...patch } : item)));
-    const { error } = await supabase.from("jobs").update(patch).eq("id", j.id);
-    if (error) {
-      load();
-      return toast.error(error.message);
+    const { error: rpcErr } = await supabase.rpc("update_driver_job_status", { p_job_id: j.id, p_status: "in_progress" });
+    if (rpcErr) {
+      const { error } = await supabase.from("jobs").update(patch).eq("id", j.id);
+      if (error) { load(); return toast.error(error.message); }
     }
     toast.success("Job started");
   };
@@ -965,11 +975,16 @@ export default function Jobs() {
 
       setJobs((prev) => prev.map((item) => (item.id === completeFor.id ? { ...item, ...updateData } : item)));
 
-      const { error } = await supabase
-        .from("jobs")
-        .update(updateData)
-        .eq("id", completeFor.id);
-      if (error) throw error;
+      const { error: rpcErr } = await supabase.rpc("update_driver_job_status", {
+        p_job_id: completeFor.id,
+        p_status: "completion_requested",
+        p_notes: compNotes || undefined,
+        p_proof_url: proofUrl || undefined,
+      });
+      if (rpcErr) {
+        const { error } = await supabase.from("jobs").update(updateData).eq("id", completeFor.id);
+        if (error) throw error;
+      }
 
       try {
         await supabase.rpc("notify_admins", {

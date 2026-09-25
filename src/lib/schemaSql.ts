@@ -236,6 +236,51 @@ language sql stable security definer set search_path = public as $$
   select id, full_name, active, user_id, email from public.drivers order by full_name;
 $$;
 
+create or replace function public.get_driver_jobs(p_user_id uuid, p_email text, p_history boolean default false)
+returns setof public.jobs
+language plpgsql security definer set search_path = public as $$
+begin
+  if p_user_id is not null and p_email is not null then
+    update public.drivers
+    set user_id = p_user_id
+    where user_id is null and lower(email) = lower(p_email);
+  end if;
+
+  if p_history then
+    return query
+    select j.* from public.jobs j
+    join public.drivers d on j.assigned_driver_id = d.id
+    where (d.user_id = p_user_id or (d.email is not null and lower(d.email) = lower(p_email)))
+      and j.status in ('completed', 'rejected')
+    order by j.created_at desc;
+  else
+    return query
+    select j.* from public.jobs j
+    join public.drivers d on j.assigned_driver_id = d.id
+    where (d.user_id = p_user_id or (d.email is not null and lower(d.email) = lower(p_email)))
+      and j.status not in ('completed', 'rejected')
+    order by j.scheduled_date asc, j.start_time asc, j.created_at desc;
+  end if;
+end; $$;
+
+create or replace function public.update_driver_job_status(
+  p_job_id uuid,
+  p_status text,
+  p_notes text default null,
+  p_proof_url text default null
+)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.jobs
+  set status = p_status::public.job_status,
+      completion_notes = coalesce(p_notes, completion_notes),
+      proof_image_url = coalesce(p_proof_url, proof_image_url),
+      actual_start_time = case when p_status = 'in_progress' and actual_start_time is null then now() else actual_start_time end,
+      completion_requested_at = case when p_status = 'completion_requested' then now() else completion_requested_at end
+  where id = p_job_id;
+end; $$;
+
 do $$ declare t text; begin
   foreach t in array array['drivers','job_titles','jobs','profiles','store_locations','driver_sessions'] loop
     execute format('drop trigger if exists tg_%s_updated on public.%I', t, t);
