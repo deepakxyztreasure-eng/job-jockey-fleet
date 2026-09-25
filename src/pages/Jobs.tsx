@@ -243,7 +243,14 @@ export default function Jobs() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const PAGE_SIZE = 50;
+  useEffect(() => {
+    if (isDriver && user?.id && user?.email) {
+      (supabase.rpc as any)("link_driver_account", {
+        p_user_id: user.id,
+        p_email: user.email,
+      }).catch(() => {});
+    }
+  }, [isDriver, user?.id, user?.email]);
 
   const buildJobsQuery = (pageNumber: number, pageSize: number) => {
     let q = supabase.from("jobs").select("*");
