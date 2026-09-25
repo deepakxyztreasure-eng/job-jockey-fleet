@@ -923,7 +923,7 @@ export default function Jobs() {
           await supabase.storage.from("job-proofs").remove([oldClean]).catch(() => {});
         }
         if (result.optimized) {
-          toast.success(`Image optimized (${result.savings}% smaller)`);
+          toast.success(`Image optimized (${Math.round((1 - result.file.size / (result.originalSize || result.file.size)) * 100)}% smaller)`);
         }
       }
 
@@ -1271,7 +1271,7 @@ export default function Jobs() {
                         onValueChange={(v) =>
                           setForm({
                             ...form,
-                            payment_kind: v,
+                            payment_kind: v as "cod" | "invoice",
                             invoice_number: v === "invoice" ? form.invoice_number : "",
                             cod_amount: v === "cod" ? form.cod_amount : "",
                           })

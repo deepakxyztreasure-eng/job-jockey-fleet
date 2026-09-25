@@ -86,6 +86,16 @@ Deno.serve(async (req) => {
       await admin.from("user_roles").delete().eq("user_id", uid);
       await admin.from("user_roles").insert({ user_id: uid, role });
 
+      // Drivers must have a drivers row linked to their auth id, otherwise assigned jobs are invisible
+      if (role === "driver") {
+        const { data: existing } = await admin.from("drivers").select("id").ilike("email", email).maybeSingle();
+        if (existing) {
+          await admin.from("drivers").update({ user_id: uid }).eq("id", existing.id);
+        } else {
+          await admin.from("drivers").insert({ user_id: uid, email, full_name: full_name || email, phone: phone || null, active: true });
+        }
+      }
+
       // Generate login setup / invitation link
       let actionLink: string | null = null;
       try {
