@@ -135,6 +135,17 @@ export default function Users() {
         }
       }
 
+      // Auto-link drivers table if role is driver
+      if (targetUserId && form.role === "driver") {
+        const targetEmail = form.email || editing?.email;
+        if (targetEmail) {
+          const { data: drv } = await supabase.from("drivers").select("id").ilike("email", targetEmail).maybeSingle();
+          if (drv) {
+            await supabase.from("drivers").update({ user_id: targetUserId }).eq("id", drv.id);
+          }
+        }
+      }
+
       // Save user-wise direct edit & job assign permission overrides
       if (targetUserId && (form.role === "member" || form.role === "dispatch_admin")) {
         const valEdit = form.can_direct_edit === "true" ? true : form.can_direct_edit === "false" ? false : null;

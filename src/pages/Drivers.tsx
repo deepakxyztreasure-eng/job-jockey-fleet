@@ -50,7 +50,12 @@ export default function Drivers() {
 
   const save = async () => {
     if (!form.full_name.trim()) return toast.error("Name required");
-    const payload: any = { ...form, user_id: form.user_id || null };
+    let targetUserId = form.user_id || null;
+    if (!targetUserId && form.email.trim()) {
+      const { data: prof } = await supabase.from("profiles").select("id").ilike("email", form.email.trim()).maybeSingle();
+      if (prof?.id) targetUserId = prof.id;
+    }
+    const payload: any = { ...form, user_id: targetUserId };
     if (editing) {
       const { error } = await supabase.from("drivers").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
@@ -58,9 +63,9 @@ export default function Drivers() {
       const { error } = await supabase.from("drivers").insert(payload);
       if (error) return toast.error(error.message);
     }
-    // If linked to a user, ensure they have driver role via security definer RPC
-    if (form.user_id) {
-      await (supabase as any).rpc("set_user_role", { p_user_id: form.user_id, p_role: "driver" }).catch(() => {});
+    // Ensure the linked user has driver role via security definer RPC
+    if (targetUserId) {
+      await (supabase as any).rpc("set_user_role", { p_user_id: targetUserId, p_role: "driver" }).catch(() => {});
     }
     toast.success("Saved"); setOpen(false); load();
   };
