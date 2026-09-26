@@ -93,6 +93,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const fetchRole = async (uid: string) => {
+    // 1. Auto-link driver, profile, and user_roles for this login session
+    try {
+      await (supabase as any).rpc("link_driver_account");
+    } catch (e) {
+      console.warn("link_driver_account notice:", e);
+    }
+
+    // 2. Fetch assigned role from user_roles
     const { data } = await supabase
       .from("user_roles")
       .select("role")
@@ -108,10 +116,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           : roles.includes("member")
             ? "member"
             : null;
-    if (r === "driver") {
-      // Link this login to its driver record (by email) so assigned jobs become visible
-      try { await (supabase as any).rpc("link_driver_account"); } catch (e) { console.error("link driver", e); }
-    }
     setRole(r);
     setLoading(false);
     if (r === "driver") {

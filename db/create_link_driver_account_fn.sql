@@ -1,44 +1,64 @@
 -- db/create_link_driver_account_fn.sql
 -- Run ONCE in Hostinger / Coolify / Supabase SQL Editor
 --
--- WHY: AuthContext.tsx calls rpc("link_driver_account") on every driver login.
---      This function does not exist in the database yet, so it silently fails.
---      Creating it here fixes driver job visibility permanently.
---
--- HOW: The function runs as security definer (DB superuser internally),
---      so it can update public.drivers even though driver-role users cannot.
---      It only touches the row matching the caller's own email — safe by design.
+-- Automatic driver, profile, and user_roles linker on login.
+-- Runs as SECURITY DEFINER so it can safely read auth.jwt() and sync
+-- drivers.user_id, profiles, and user_roles to the user's real auth.uid().
 
--- 1. Create the function that AuthContext.tsx already calls on driver login
 create or replace function public.link_driver_account()
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, auth
 as $$
 declare
-  _uid   uuid := auth.uid();
-  _email text;
+  v_uid uuid := auth.uid();
+  v_email text := lower(coalesce(auth.jwt()->>'email', ''));
 begin
-  select email into _email from auth.users where id = _uid;
-  if _email is null then return; end if;
+  if v_uid is null or v_email = '' then
+    return;
+  end if;
 
-  -- Link the driver row that matches this email if not yet linked
+  -- 1. Link drivers table matching by email
   update public.drivers
-  set user_id = _uid
-  where user_id is null
-    and email is not null
-    and lower(email) = lower(_email);
+  set user_id = v_uid
+  where lower(email) = v_email
+    and (user_id is null or user_id != v_uid);
+
+  -- 2. Ensure profile entry exists for this auth user
+  insert into public.profiles (id, full_name, email)
+  values (
+    v_uid,
+    coalesce(auth.jwt()->>'full_name', split_part(v_email, '@', 1)),
+    v_email
+  )
+  on conflict (id) do update
+  set email = excluded.email,
+      updated_at = now();
+
+  -- 3. Ensure user_roles entry exists for this auth user
+  if not exists (select 1 from public.user_roles where user_id = v_uid) then
+    if exists (select 1 from public.drivers where user_id = v_uid) then
+      insert into public.user_roles (user_id, role) values (v_uid, 'driver') on conflict do nothing;
+    elsif v_email in ('deepakxyztreasure@gmail.com', 'deepakchandra076@gmail.com', 'garytippertruck@gmail.com') then
+      insert into public.user_roles (user_id, role) values (v_uid, 'super_admin') on conflict do nothing;
+    else
+      insert into public.user_roles (user_id, role) values (v_uid, 'member') on conflict do nothing;
+    end if;
+  end if;
+
 end;
 $$;
 
 grant execute on function public.link_driver_account() to authenticated;
 
--- 2. One-time repair: immediately link ALL existing unlinked drivers
---    This fixes Malkit@gmail.com and any others right now, without needing a logout/login
+-- Immediate repair UPDATE for any existing drivers in the database
 update public.drivers d
 set user_id = u.id
 from auth.users u
-where d.user_id is null
-  and d.email is not null
-  and lower(d.email) = lower(u.email);
+where d.email is not null
+  and lower(d.email) = lower(u.email)
+  and (d.user_id is null or d.user_id != u.id);
+
+-- Reload PostgREST schema cache
+notify pgrst, 'reload schema';
