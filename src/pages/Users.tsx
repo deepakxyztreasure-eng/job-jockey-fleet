@@ -114,6 +114,19 @@ export default function Users() {
         await (supabase as any).rpc("set_user_role", { p_user_id: newUid, p_role: form.role });
         targetUserId = newUid;
 
+        // If role is driver, create a drivers row so jobs can be assigned immediately.
+        // user_id is left null here — link_driver_account() will set it to the real
+        // auth.uid() on the driver's first login, fixing the UUID automatically.
+        if (form.role === "driver") {
+          await supabase.from("drivers").insert({
+            full_name: form.full_name || form.email,
+            email: form.email,
+            phone: form.phone || null,
+            active: true,
+            user_id: null,
+          });
+        }
+
         const inviteResult = await sendInvitationEmail({ email: form.email, fullName: form.full_name, role: form.role });
         if (inviteResult.ok) {
           toast.success(inviteResult.message || "Member added successfully");
