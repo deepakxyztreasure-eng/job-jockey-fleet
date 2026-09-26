@@ -169,7 +169,9 @@ export default function Users() {
     try {
       await supabase.from("user_roles").delete().eq("user_id", r.id);
       await supabase.from("user_permissions").delete().eq("user_id", r.id);
-      await supabase.from("drivers").delete().eq("user_id", r.id);
+      // Delete driver row by email — covers both user_id=null (before first login)
+      // and user_id=real_auth_uuid (after first login), neither of which match r.id (fake profile uuid)
+      if (r.email) await supabase.from("drivers").delete().eq("email", r.email);
       const { error } = await supabase.from("profiles").delete().eq("id", r.id);
       if (error) return toast.error(error.message);
       toast.success("User removed successfully");
