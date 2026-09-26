@@ -70,6 +70,8 @@ export async function sendInvitationEmail({ email, fullName, role }: SendInviteP
         </div>
       `;
 
+      const fromSender = import.meta.env.VITE_RESEND_FROM_EMAIL || "Jodha Group <onboarding@jodhagroup.app>";
+
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -77,7 +79,7 @@ export async function sendInvitationEmail({ email, fullName, role }: SendInviteP
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          from: "Jodha Group <onboarding@resend.dev>",
+          from: fromSender,
           to: [email],
           subject: "Welcome to Jodha Group - Set Up Your Account (Valid 15 Mins)",
           html: htmlContent,

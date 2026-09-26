@@ -49,7 +49,7 @@ export default async function handler(req: any, res: any) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: "Jodha Group <onboarding@resend.dev>",
+        from: process.env.VITE_RESEND_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || "Jodha Group <onboarding@jodhagroup.app>",
         to: Array.isArray(to) ? to : [to],
         subject: "Welcome to Jodha Group - Set Up Your Account (Valid 15 Mins)",
         html: htmlContent,
