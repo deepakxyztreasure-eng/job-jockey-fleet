@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type AppRole = "super_admin" | "dispatch_admin" | "member" | "driver";
 
@@ -119,6 +120,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRole(r);
     setLoading(false);
     if (r === "driver") {
+      // Self-check: a driver login with no linked driver profile sees zero jobs.
+      // RLS (drivers_select_self) only returns the driver's own row, so an empty
+      // result here means the link is broken — surface it instead of failing silently.
+      supabase
+        .from("drivers")
+        .select("id")
+        .limit(1)
+        .then(({ data: drvRows, error: drvErr }) => {
+          if (drvErr) {
+            console.error("driver link check failed:", drvErr);
+            return;
+          }
+          if (!drvRows || drvRows.length === 0) {
+            console.error(
+              "No driver profile is linked to this login (drivers.user_id mismatch). " +
+                "Run db/fix_driver_uuid_mismatch.sql or ask an admin to relink the driver."
+            );
+            toast.error(
+              "Your driver profile isn't linked to this login — ask an admin to relink it, or your jobs won't show."
+            );
+          }
+        });
       ensureDriverSession(uid).catch((e) => console.error("driver session", e));
     }
   };
