@@ -85,9 +85,6 @@ export default function Users() {
     setEditing(r);
     const permStr = r.can_direct_edit === true ? "true" : r.can_direct_edit === false ? "false" : "inherit";
     const assignStr = r.can_assign_jobs === true ? "true" : r.can_assign_jobs === false ? "false" : "inherit";
-    if (!r.role) {
-      toast.warning(`${r.email || "This user"} has no role assigned — please select the correct role before saving.`);
-    }
     setForm({
       id: r.id,
       full_name: r.full_name ?? "",
@@ -105,96 +102,30 @@ export default function Users() {
     setBusy(true);
     try {
       let targetUserId = editing?.id;
-
       if (!editing) {
-        // --- CREATE: sign up via a separate Supabase client so the admin session is not touched ---
-        // We use a separate client instance so signUp doesn't replace the admin's current session.
-        // This creates a REAL auth.users entry whose id matches auth.uid() on login — fixing the
-        // UUID mismatch that was the root cause of all driver/job visibility bugs.
         if (!form.email) { toast.error("Email is required"); return; }
-
-        const tempPassword = `Jodha@${Math.floor(100000 + Math.random() * 900000)}`;
-        let uid: string | null = null;
-
-        // Isolated client — auth changes here don't affect the admin's own session
-        const { createClient } = await import("@supabase/supabase-js");
-        const anonClient = createClient(
-          import.meta.env.VITE_SUPABASE_URL || "https://staging.jodhagroup.app",
-          import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "",
-          { auth: { persistSession: false, autoRefreshToken: false } }
-        );
-
-        const { data: signUpData, error: signUpErr } = await anonClient.auth.signUp({
-          email: form.email,
-          password: tempPassword,
-          options: { data: { full_name: form.full_name || null } },
-        });
-
-        if (!signUpErr) {
-          // New user created successfully — use the real auth UUID
-          uid = signUpData?.user?.id ?? null;
-        } else if (signUpErr.message.toLowerCase().includes("already registered") || signUpErr.message.toLowerCase().includes("already exists")) {
-          // User already exists in auth.users — look up their real UUID via a security-definer helper.
-          // NOTE: this requires the get_user_id_by_email() function to be created in Supabase SQL Editor.
-          // Run db/repair_uuid_mismatch.sql once to create it.
-          const { data: existingUid } = await supabase.rpc("get_user_id_by_email", { p_email: form.email }) as any;
-          uid = existingUid ?? null;
-          if (!uid) {
-            toast.error("User already registered but could not look up their ID. Please run db/repair_uuid_mismatch.sql in your Supabase SQL Editor first.");
-            return;
-          }
-        } else {
-          toast.error(`Could not create user: ${signUpErr.message}`);
-          return;
-        }
-
-        if (!uid) {
-          toast.error("User account pending email confirmation — invite sent. Their profile will be linked once they confirm.");
-          setOpen(false); load(); return;
-        }
-
-        // Upsert profile with the REAL auth UUID (not a fake randomUUID)
-        await supabase.from("profiles").upsert({
-          id: uid,
+        const newUid = crypto.randomUUID();
+        const { error: profErr } = await supabase.from("profiles").insert({
+          id: newUid,
           full_name: form.full_name || null,
           email: form.email,
           phone: form.phone || null,
-        }, { onConflict: "id" });
+        });
+        if (profErr) { toast.error(profErr.message); return; }
 
-        // Set role
-        await supabase.from("user_roles").delete().eq("user_id", uid);
-        await supabase.from("user_roles").insert({ user_id: uid, role: form.role });
+        await supabase.from("user_roles").insert({ user_id: newUid, role: form.role });
+        targetUserId = newUid;
 
-        // If driver: link or create the drivers row with the real UUID
-        if (form.role === "driver") {
-          const { data: existingDrv } = await supabase
-            .from("drivers")
-            .select("id")
-            .ilike("email", form.email)
-            .maybeSingle();
-          if (existingDrv) {
-            await supabase.from("drivers").update({ user_id: uid }).eq("id", existingDrv.id);
-          } else {
-            await supabase.from("drivers").insert({
-              user_id: uid,
-              email: form.email,
-              full_name: form.full_name || form.email,
-              phone: form.phone || null,
-              active: true,
-            });
-          }
-        }
-
-        targetUserId = uid;
-
-        // Send invitation / password reset email so user can set their own password
         const inviteResult = await sendInvitationEmail({ email: form.email, fullName: form.full_name, role: form.role });
-        toast.success(inviteResult.message || "User saved successfully");
+        if (inviteResult.ok) {
+          toast.success(inviteResult.message || "Member added successfully");
+        } else {
+          toast.warning(inviteResult.message || "User created, but email could not be sent.");
+        }
         if (inviteResult.actionLink) {
           setInviteLink({ email: form.email, link: inviteResult.actionLink });
         }
       } else {
-        // --- UPDATE: update profile and role ---
         const { error: profErr } = await supabase.from("profiles").update({ full_name: form.full_name, phone: form.phone }).eq("id", editing.id);
         if (profErr) { toast.error(profErr.message); return; }
 
