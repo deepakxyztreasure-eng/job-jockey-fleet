@@ -484,14 +484,9 @@ export default function Jobs() {
       const inHistory = (HISTORY_STATUSES as readonly string[]).includes(j.status);
       if (!historyMode && inHistory) return false;
       if (historyMode && !inHistory) return false;
-      if (isDriver && user) {
-        const userEmailLower = user.email?.toLowerCase();
-        const myDriverIds = new Set(
-          drivers
-            .filter((d) => d.user_id === user.id || (userEmailLower && d.email && d.email.toLowerCase() === userEmailLower))
-            .map((d) => d.id)
-        );
-        if (myDriverIds.size > 0 && !myDriverIds.has(j.assigned_driver_id)) return false;
+      if (isDriver) {
+        const currentDriver = drivers.find((d) => d.user_id === user?.id);
+        if (currentDriver && j.assigned_driver_id !== currentDriver.id) return false;
       }
       if (words.length > 0) {
         const hay =
