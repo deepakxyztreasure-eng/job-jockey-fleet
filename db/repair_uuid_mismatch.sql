@@ -69,3 +69,19 @@ where user_id != (select id from auth.users where lower(email) = lower('Malkit@g
 
 -- Reload PostgREST schema cache
 notify pgrst, 'reload schema';
+
+-- ─────────────────────────────────────────────────────────────
+-- HELPER FUNCTION: look up a user's real auth UUID by email
+-- Used by the Users page when signUp returns "User already registered"
+-- so we can find their real auth.users.id and fix profile/roles/drivers.
+-- ─────────────────────────────────────────────────────────────
+create or replace function public.get_user_id_by_email(p_email text)
+returns uuid
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select id from auth.users where lower(email) = lower(p_email) limit 1;
+$$;
+
+grant execute on function public.get_user_id_by_email(text) to authenticated;
