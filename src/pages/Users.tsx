@@ -85,6 +85,9 @@ export default function Users() {
     setEditing(r);
     const permStr = r.can_direct_edit === true ? "true" : r.can_direct_edit === false ? "false" : "inherit";
     const assignStr = r.can_assign_jobs === true ? "true" : r.can_assign_jobs === false ? "false" : "inherit";
+    if (!r.role) {
+      toast.warning(`${r.email || "This user"} has no role assigned — please select the correct role before saving.`);
+    }
     setForm({
       id: r.id,
       full_name: r.full_name ?? "",
