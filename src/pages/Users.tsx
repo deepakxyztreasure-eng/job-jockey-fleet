@@ -58,9 +58,7 @@ export default function Users() {
   useEffect(() => { load(); }, []);
 
   const setRoleQuick = async (userId: string, newRole: Role) => {
-    const { error: del } = await supabase.from("user_roles").delete().eq("user_id", userId);
-    if (del) return toast.error(del.message);
-    const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole });
+    const { error } = await (supabase as any).rpc("set_user_role", { p_user_id: userId, p_role: newRole });
     if (error) return toast.error(error.message);
     toast.success("Role updated"); load();
   };
@@ -113,7 +111,7 @@ export default function Users() {
         });
         if (profErr) { toast.error(profErr.message); return; }
 
-        await supabase.from("user_roles").insert({ user_id: newUid, role: form.role });
+        await (supabase as any).rpc("set_user_role", { p_user_id: newUid, p_role: form.role });
         targetUserId = newUid;
 
         const inviteResult = await sendInvitationEmail({ email: form.email, fullName: form.full_name, role: form.role });
@@ -129,8 +127,7 @@ export default function Users() {
         const { error: profErr } = await supabase.from("profiles").update({ full_name: form.full_name, phone: form.phone }).eq("id", editing.id);
         if (profErr) { toast.error(profErr.message); return; }
 
-        await supabase.from("user_roles").delete().eq("user_id", editing.id);
-        await supabase.from("user_roles").insert({ user_id: editing.id, role: form.role });
+        await (supabase as any).rpc("set_user_role", { p_user_id: editing.id, p_role: form.role });
         toast.success(form.password ? "Updated & password reset email sent" : "Updated successfully");
 
         if (form.password) {

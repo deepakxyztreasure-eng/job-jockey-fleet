@@ -58,9 +58,9 @@ export default function Drivers() {
       const { error } = await supabase.from("drivers").insert(payload);
       if (error) return toast.error(error.message);
     }
-    // If linked to a user, ensure they have driver role
+    // If linked to a user, ensure they have driver role via security definer RPC
     if (form.user_id) {
-      await supabase.from("user_roles").upsert({ user_id: form.user_id, role: "driver" }, { onConflict: "user_id,role" });
+      await (supabase as any).rpc("set_user_role", { p_user_id: form.user_id, p_role: "driver" }).catch(() => {});
     }
     toast.success("Saved"); setOpen(false); load();
   };
