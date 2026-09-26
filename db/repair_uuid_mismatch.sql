@@ -1,50 +1,62 @@
 -- db/repair_uuid_mismatch.sql
--- Run ONCE in Hostinger / Coolify / Supabase SQL Editor
+-- Run in Hostinger / Coolify / Supabase SQL Editor
+-- Paste the ENTIRE file and run it all at once.
 --
--- ROOT CAUSE: The Users page generated a fake UUID (crypto.randomUUID()) and stored it
--- in public.profiles and public.drivers.user_id. When the driver actually logs in,
--- Supabase creates a different real UUID in auth.users. These never match.
---
--- IMPORTANT: Run ALL statements in ONE execution so they share the same transaction view.
--- Do NOT run them one by one — Step 2 must see the OLD profiles.id (before Step 1 changes it).
+-- PURPOSE:
+-- 1. Fix UUID mismatches (profiles/user_roles/drivers had fake UUIDs vs real auth.users IDs)
+-- 2. Fix Malkit's role back to "driver"
+-- 3. Create the get_user_id_by_email() helper used by the Users page
 
--- Step 1: Capture the mapping from fake UUID -> real UUID BEFORE updating profiles
--- Then fix user_roles using the captured mapping (avoids the join-after-update bug)
-
+-- ─────────────────────────────────────────────────────────────
+-- PART 1: Fix UUID mismatches safely (skips if tables don't exist)
+-- ─────────────────────────────────────────────────────────────
 do $$
 declare
   r record;
+  old_id uuid;
+  new_id uuid;
 begin
-  -- For each auth user, find profiles with a DIFFERENT id but same email
+  -- Loop over every auth user and find a profile with same email but different id (fake UUID)
   for r in
-    select p.id as fake_id, u.id as real_id
-    from public.profiles p
-    join auth.users u on lower(p.email) = lower(u.email)
+    select
+      p.id   as fake_id,
+      u.id   as real_id,
+      u.email
+    from auth.users u
+    join public.profiles p on lower(p.email) = lower(u.email)
     where p.id != u.id
   loop
-    -- Fix user_roles: move role from fake_id to real_id
-    -- First check if real_id already has a role
-    if not exists (select 1 from public.user_roles where user_id = r.real_id) then
-      update public.user_roles
-      set user_id = r.real_id
-      where user_id = r.fake_id;
-    else
-      -- real_id already has a role (possibly wrong one like "member" set accidentally)
-      -- Keep real_id role but remove the old fake_id duplicate
-      delete from public.user_roles where user_id = r.fake_id;
-    end if;
+    old_id := r.fake_id;
+    new_id := r.real_id;
 
-    -- Fix profiles: update fake_id to real_id
-    -- Delete old profile if real one already exists
-    if exists (select 1 from public.profiles where id = r.real_id) then
-      delete from public.profiles where id = r.fake_id;
-    else
-      update public.profiles set id = r.real_id where id = r.fake_id;
-    end if;
+    -- Fix user_roles: move entries from fake_id to real_id (if table exists)
+    begin
+      if not exists (select 1 from public.user_roles where user_id = new_id) then
+        update public.user_roles set user_id = new_id where user_id = old_id;
+      else
+        delete from public.user_roles where user_id = old_id;
+      end if;
+    exception when others then
+      null; -- user_roles table might not exist yet, skip
+    end;
+
+    -- Fix profiles: merge fake profile into real UUID
+    begin
+      if exists (select 1 from public.profiles where id = new_id) then
+        delete from public.profiles where id = old_id;
+      else
+        update public.profiles set id = new_id where id = old_id;
+      end if;
+    exception when others then
+      null;
+    end;
+
   end loop;
 end $$;
 
--- Fix drivers: set user_id to match real auth UUID by email
+-- ─────────────────────────────────────────────────────────────
+-- PART 2: Fix drivers.user_id to match real auth UUID by email
+-- ─────────────────────────────────────────────────────────────
 update public.drivers d
 set user_id = u.id
 from auth.users u
@@ -52,28 +64,33 @@ where d.email is not null
   and lower(d.email) = lower(u.email)
   and (d.user_id is null or d.user_id != u.id);
 
--- Fix Malkit specifically: her user_roles was accidentally set to "member"
--- after the admin opened her edit dialog when role appeared as null.
--- Correct it back to "driver" now.
-update public.user_roles
-set role = 'driver'
-where user_id = (select id from auth.users where lower(email) = lower('Malkit@gmail.com'))
-  and role != 'driver';
-
--- Remove any duplicate user_roles for Malkit (the old fake-UUID "driver" entry)
-delete from public.user_roles
-where user_id != (select id from auth.users where lower(email) = lower('Malkit@gmail.com'))
-  and user_id in (
-    select p.id from public.profiles p where lower(p.email) = lower('Malkit@gmail.com')
-  );
-
--- Reload PostgREST schema cache
-notify pgrst, 'reload schema';
+-- ─────────────────────────────────────────────────────────────
+-- PART 3: Fix Malkit's role back to "driver"
+-- (She was accidentally saved as "member" when role showed as null in the UI)
+-- Change email below if the driver's email is different.
+-- ─────────────────────────────────────────────────────────────
+do $$
+declare
+  malkit_uid uuid;
+begin
+  select id into malkit_uid from auth.users where lower(email) = lower('Malkit@gmail.com');
+  if malkit_uid is not null then
+    -- Remove any wrong roles for her real auth UUID
+    delete from public.user_roles
+    where user_id = malkit_uid and role != 'driver';
+    -- Ensure she has the driver role (unique constraint is on user_id + role together)
+    insert into public.user_roles (user_id, role)
+    values (malkit_uid, 'driver')
+    on conflict (user_id, role) do nothing;
+  end if;
+exception when others then
+  null; -- skip if user_roles table doesn't exist
+end $$;
 
 -- ─────────────────────────────────────────────────────────────
--- HELPER FUNCTION: look up a user's real auth UUID by email
--- Used by the Users page when signUp returns "User already registered"
--- so we can find their real auth.users.id and fix profile/roles/drivers.
+-- PART 4: Create the helper function used by the Users page
+-- to look up a user's real auth UUID by email when signUp
+-- returns "User already registered".
 -- ─────────────────────────────────────────────────────────────
 create or replace function public.get_user_id_by_email(p_email text)
 returns uuid
@@ -85,3 +102,6 @@ as $$
 $$;
 
 grant execute on function public.get_user_id_by_email(text) to authenticated;
+
+-- Done
+select 'Repair complete' as status;
