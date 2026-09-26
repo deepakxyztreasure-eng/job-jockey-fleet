@@ -88,9 +88,10 @@ Deno.serve(async (req) => {
 
       // Drivers must have a drivers row linked to their auth id, otherwise assigned jobs are invisible
       if (role === "driver") {
-        const { data: existing } = await admin.from("drivers").select("id").ilike("email", email).maybeSingle();
-        if (existing) {
-          await admin.from("drivers").update({ user_id: uid }).eq("id", existing.id);
+        // Note: maybeSingle() fails silently on duplicate rows and caused extra driver rows — use a list
+        const { data: existing } = await admin.from("drivers").select("id").ilike("email", email);
+        if (existing && existing.length) {
+          await admin.from("drivers").update({ user_id: uid }).ilike("email", email);
         } else {
           await admin.from("drivers").insert({ user_id: uid, email, full_name: full_name || email, phone: phone || null, active: true });
         }
