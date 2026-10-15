@@ -17,7 +17,7 @@ import { Job } from '../../types';
 import { fetchDriverJobs, acceptJob, rejectJob, startJob } from '../../api/jobs';
 import { JobCard } from '../../components/JobCard';
 import { SOSButton } from '../../components/SOSButton';
-import { playAlertSound } from '../../services/notificationService';
+import { playAlertSound, triggerLocalNotification } from '../../services/notificationService';
 import { updateActiveTrackingJob } from '../../services/locationService';
 import { supabase } from '../../api/supabase';
 
@@ -66,7 +66,7 @@ export const JobListScreen: React.FC<JobListScreenProps> = ({
   useEffect(() => {
     loadJobs();
 
-    // Setup Supabase Realtime channel for instant job dispatch alerts
+    // 1. Setup Supabase Realtime channel for postgres_changes
     const channel = supabase
       .channel('driver-jobs-rt')
       .on(
@@ -78,26 +78,37 @@ export const JobListScreen: React.FC<JobListScreenProps> = ({
           filter: `assigned_driver_id=eq.${driverId}`,
         },
         (payload: any) => {
-          if (payload.eventType === 'INSERT') {
-            // New job allocated! Play audio chime and switch to 'new' tab
+          const newItem = payload.new;
+          if (
+            payload.eventType === 'INSERT' ||
+            (payload.eventType === 'UPDATE' && newItem?.status === 'assigned')
+          ) {
+            // New job allocated or reassigned!
             playAlertSound('new_job').catch(() => {});
+            triggerLocalNotification(
+              'New Job Allocated!',
+              `Job #${newItem?.job_number || ''}: ${newItem?.title || 'New Job'} has been assigned to you.`,
+              { jobId: newItem?.id }
+            ).catch(() => {});
             setActiveTab('new');
             setUrgentAlert({
               title: 'New Job Allocated!',
-              message: `Job #${payload.new.job_number || ''}: ${payload.new.title} has been assigned to you.`,
+              message: `Job #${newItem?.job_number || ''}: ${newItem?.title || 'New Job'} has been assigned to you.`,
             });
           } else if (payload.eventType === 'UPDATE') {
-            // Check if instructions or address changed
-            const oldItem = payload.old;
-            const newItem = payload.new;
+            const oldItem = payload.old || {};
             if (
-              oldItem.instructions !== newItem.instructions ||
-              oldItem.delivery_address !== newItem.delivery_address
+              (oldItem.instructions && oldItem.instructions !== newItem?.instructions) ||
+              (oldItem.delivery_address && oldItem.delivery_address !== newItem?.delivery_address)
             ) {
               playAlertSound('urgent').catch(() => {});
+              triggerLocalNotification(
+                '⚡ Urgent Job Update from Dispatch',
+                `Update for Job #${newItem?.job_number || ''}: ${newItem?.instructions || 'Delivery details updated.'}`
+              ).catch(() => {});
               setUrgentAlert({
                 title: '⚡ Urgent Job Update from Dispatch',
-                message: `Update for Job #${newItem.job_number || ''}: ${newItem.instructions || 'Delivery details updated.'}`,
+                message: `Update for Job #${newItem?.job_number || ''}: ${newItem?.instructions || 'Delivery details updated.'}`,
               });
             }
           }
@@ -106,8 +117,33 @@ export const JobListScreen: React.FC<JobListScreenProps> = ({
       )
       .subscribe();
 
+    // 2. Setup direct private WebSocket broadcast channel for instant dispatch push
+    const directChannelName = `driver-dispatch-${driverId}`;
+    const directChannel = supabase
+      .channel(directChannelName)
+      .on('broadcast', { event: 'job_assigned' }, (payload: any) => {
+        playAlertSound('new_job').catch(() => {});
+        triggerLocalNotification(
+          'New Job Assigned!',
+          payload?.payload?.title
+            ? `Job ${payload.payload.title} has been assigned to you.`
+            : 'You have a new job assigned. Open app to review.',
+          payload?.payload
+        ).catch(() => {});
+        setActiveTab('new');
+        setUrgentAlert({
+          title: 'New Job Allocated!',
+          message: payload?.payload?.title
+            ? `Job: ${payload.payload.title} is ready for acceptance.`
+            : 'A new job has been allocated to you by dispatch.',
+        });
+        loadJobs();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(directChannel);
     };
   }, [driverId, loadJobs]);
 

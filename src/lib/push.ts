@@ -161,20 +161,26 @@ async function sendExpoPushNotifications(
 export async function sendPushToUser(
   userId: string,
   payload: { title: string; body?: string; url?: string; tag?: string },
+  driverId?: string
 ): Promise<PushResult> {
   // 1. Direct Expo Native Push for Driver Mobile App
   try {
-    const { data: subs } = await supabase
-      .from("push_subscriptions" as any)
-      .select("endpoint, p256dh")
-      .eq("user_id", userId);
+    let query = supabase.from("push_subscriptions" as any).select("endpoint, p256dh");
+    if (userId && driverId) {
+      query = query.or(`user_id.eq.${userId},driver_id.eq.${driverId}`);
+    } else if (userId) {
+      query = query.eq("user_id", userId);
+    } else if (driverId) {
+      query = query.eq("driver_id", driverId);
+    }
+    const { data: subs } = await query;
 
     const expoTokens = (subs || [])
       .filter((s: any) => s.endpoint?.startsWith("ExponentPushToken") || s.p256dh === "expo")
       .map((s: any) => s.endpoint);
 
     if (expoTokens.length > 0) {
-      sendExpoPushNotifications(expoTokens, payload.title, payload.body, { url: payload.url, tag: payload.tag });
+      await sendExpoPushNotifications(expoTokens, payload.title, payload.body, { url: payload.url, tag: payload.tag });
     }
   } catch {}
 
@@ -188,6 +194,15 @@ export async function sendPushToUser(
   } catch (e) {
     return { ok: true, sent: 1 };
   }
+}
+
+/** Fire a push directly to a driver via their driverId and optional userId */
+export async function sendPushToDriver(
+  driverId: string,
+  payload: { title: string; body?: string; url?: string; tag?: string },
+  userId?: string | null
+): Promise<PushResult> {
+  return sendPushToUser(userId || "", payload, driverId);
 }
 
 export async function sendPushToRoles(

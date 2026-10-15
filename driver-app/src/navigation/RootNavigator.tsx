@@ -117,8 +117,13 @@ export const RootNavigator: React.FC = () => {
           startAdaptiveTracking(data.id);
         }
 
+        // Ensure driver record has user_id linked
+        if (!data.user_id) {
+          supabase.from('drivers').update({ user_id: userId }).eq('id', data.id).then(() => {});
+        }
+
         // Register push token
-        registerForPushNotifications(userId);
+        registerForPushNotifications(userId, data.id);
       }
     } catch (err) {
       console.warn('Error loading driver profile:', err);

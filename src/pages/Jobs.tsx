@@ -40,7 +40,7 @@ import { StatusBadge, PaymentBadge } from "@/components/StatusBadge";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays } from "date-fns";
 import { optimizeImage, formatBytes } from "@/lib/compressImage";
 import { exportJobsCSV, exportJobsXLSX } from "@/lib/exportJobs";
-import { sendPushToRoles, sendPushToUser } from "@/lib/push";
+import { sendPushToRoles, sendPushToUser, sendPushToDriver } from "@/lib/push";
 
 const ALL_STATUSES = [
   "pending",
@@ -812,25 +812,73 @@ export default function Jobs() {
         status: "assigned" as any,
       })
       .eq("id", assignFor.id);
-    if (error) return toast.error(error.message);
-    const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", assignDriver).maybeSingle();
-    if (drv?.user_id) {
-      const body = `${assignFor.title} (Invoice ${assignFor.invoice_number})`;
+    // Resolve driver user_id and email
+    const { data: drv } = await supabase
+      .from("drivers")
+      .select("id, user_id, email, full_name")
+      .eq("id", assignDriver)
+      .maybeSingle();
+
+    let targetUserId = drv?.user_id;
+    if (!targetUserId && drv?.email) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", drv.email.trim().toLowerCase())
+        .maybeSingle();
+      if (prof?.id) {
+        targetUserId = prof.id;
+        supabase.from("drivers").update({ user_id: prof.id }).eq("id", assignDriver).then(() => {});
+      }
+    }
+
+    const body = `${assignFor.title || "Job"} (Invoice ${assignFor.invoice_number || ""})`;
+
+    // 1. Send push to driver (queries push_subscriptions by driver_id and/or user_id)
+    sendPushToDriver(
+      assignDriver,
+      {
+        title: "New job assigned",
+        body,
+        url: "/jobs",
+        tag: `job-${assignFor.id}`,
+      },
+      targetUserId
+    ).catch(() => {});
+
+    // 2. Persist in notifications table if user_id is resolved
+    if (targetUserId) {
       await supabase.from("notifications").insert({
-        user_id: drv.user_id,
+        user_id: targetUserId,
         title: "New job assigned",
         body,
         type: "job_assigned",
         job_id: assignFor.id,
       });
-      await sendPushToUser(drv.user_id, {
-        title: "New job assigned",
-        body,
-        url: "/jobs",
-        tag: `job-${assignFor.id}`,
-      });
     }
-    toast.success("Driver assigned");
+
+    // 3. Send instant Realtime WebSocket broadcast directly to driver device
+    try {
+      const chName = `driver-dispatch-${assignDriver}`;
+      const driverChannel = supabase.channel(chName);
+      driverChannel.subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          driverChannel.send({
+            type: "broadcast",
+            event: "job_assigned",
+            payload: {
+              job_id: assignFor.id,
+              title: assignFor.title,
+              invoice_number: assignFor.invoice_number,
+              driver_id: assignDriver,
+            },
+          });
+          setTimeout(() => supabase.removeChannel(driverChannel), 2500);
+        }
+      });
+    } catch {}
+
+    toast.success("Driver assigned & notified");
     setJobs((prev) => prev.map((item) => (item.id === assignFor.id ? { ...item, assigned_driver_id: assignDriver, status: "assigned" } : item)));
     setAssignFor(null);
     load();
@@ -1084,18 +1132,61 @@ export default function Jobs() {
       load();
       return toast.error(error.message);
     }
-    const { data: drv } = await supabase.from("drivers").select("user_id").eq("id", driverId).maybeSingle();
-    if (drv?.user_id) {
-      const body = `${count} job${count > 1 ? "s" : ""} assigned to you`;
+    // Resolve driver user_id and email
+    const { data: drv } = await supabase
+      .from("drivers")
+      .select("id, user_id, email, full_name")
+      .eq("id", driverId)
+      .maybeSingle();
+
+    let targetUserId = drv?.user_id;
+    if (!targetUserId && drv?.email) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", drv.email.trim().toLowerCase())
+        .maybeSingle();
+      if (prof?.id) {
+        targetUserId = prof.id;
+        supabase.from("drivers").update({ user_id: prof.id }).eq("id", driverId).then(() => {});
+      }
+    }
+
+    const body = `${count} job${count > 1 ? "s" : ""} assigned to you`;
+
+    // 1. Direct driver push notification
+    sendPushToDriver(driverId, { title: "New jobs assigned", body, url: "/jobs" }, targetUserId).catch(() => {});
+
+    // 2. Insert notification if user_id resolved
+    if (targetUserId) {
       await supabase.from("notifications").insert({
-        user_id: drv.user_id,
+        user_id: targetUserId,
         title: "New jobs assigned",
         body,
         type: "job_assigned",
       });
-      await sendPushToUser(drv.user_id, { title: "New jobs assigned", body, url: "/jobs" });
     }
-    toast.success("Reassigned");
+
+    // 3. Broadcast WebSocket event directly to driver
+    try {
+      const chName = `driver-dispatch-${driverId}`;
+      const driverChannel = supabase.channel(chName);
+      driverChannel.subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          driverChannel.send({
+            type: "broadcast",
+            event: "job_assigned",
+            payload: {
+              count,
+              driver_id: driverId,
+            },
+          });
+          setTimeout(() => supabase.removeChannel(driverChannel), 2500);
+        }
+      });
+    } catch {}
+
+    toast.success("Reassigned & driver notified");
     setSelected(new Set());
     load();
   };
