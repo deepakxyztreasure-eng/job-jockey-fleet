@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import DriverChecklistDialog from "@/components/DriverChecklistDialog";
 import PushToggle from "@/components/PushToggle";
+import EmergencySOSBanner from "@/components/EmergencySOSBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,9 +13,11 @@ export default function AppLayout() {
   const { role, driverExit } = useAuth();
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col">
+      <div className="min-h-screen flex w-full flex-col">
+        <EmergencySOSBanner />
+        <div className="flex-1 flex w-full">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col">
           <header className="min-h-14 pt-safe pl-safe pr-safe border-b bg-card flex items-center justify-between px-3 sm:px-4 sticky top-0 z-30">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <SidebarTrigger />
@@ -45,6 +48,7 @@ export default function AppLayout() {
           <DriverChecklistDialog />
         </div>
       </div>
-    </SidebarProvider>
-  );
+    </div>
+  </SidebarProvider>
+);
 }

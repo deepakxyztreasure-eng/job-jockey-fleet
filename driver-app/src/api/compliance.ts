@@ -41,26 +41,105 @@ export async function logFatigueEvent(event: FatigueLog): Promise<void> {
 }
 
 export async function triggerEmergencySOS(alert: EmergencyAlert): Promise<void> {
-  const { error } = await supabase.from('emergency_alerts').insert({
+  // 1. Fetch driver profile info for rich emergency dispatch
+  let driverName = "Driver";
+  let driverPhone = "";
+  try {
+    const { data: drv } = await supabase
+      .from('drivers')
+      .select('full_name, phone, vehicle')
+      .eq('id', alert.driver_id)
+      .maybeSingle();
+    if (drv) {
+      driverName = drv.full_name || 'Driver';
+      driverPhone = drv.phone || '';
+    }
+  } catch {}
+
+  const emergencyPayload = {
     driver_id: alert.driver_id,
+    driver_name: driverName,
+    driver_phone: driverPhone,
     latitude: alert.latitude,
     longitude: alert.longitude,
     location_address: alert.location_address || null,
     battery_level: alert.battery_level || null,
     status: 'active',
     timestamp: new Date().toISOString(),
-  });
+  };
 
-  if (error) throw error;
-
-  // Real-time siren notification to Super Admin
+  // 2. Insert into emergency_alerts table
   try {
-    await supabase.from('notifications').insert({
-      title: '🚨🚨 SOS EMERGENCY TRIGGERED 🚨🚨',
-      body: `Driver has triggered an emergency SOS at coordinates (${alert.latitude}, ${alert.longitude})`,
-      type: 'emergency_sos',
+    const { error } = await supabase.from('emergency_alerts').insert(emergencyPayload);
+    if (error) console.warn('[EmergencySOS] Table insert notice:', error.message);
+  } catch (err) {
+    console.warn('[EmergencySOS] Table insert exception:', err);
+  }
+
+  // 3. Direct Realtime WebSocket broadcast to ALL connected dispatch & admin consoles
+  try {
+    const sosChannel = supabase.channel('dispatch-emergency-broadcast');
+    sosChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        sosChannel.send({
+          type: 'broadcast',
+          event: 'emergency_sos',
+          payload: emergencyPayload,
+        });
+        setTimeout(() => supabase.removeChannel(sosChannel), 3000);
+      }
     });
-  } catch {}
+  } catch (bcErr) {
+    console.warn('[EmergencySOS] Broadcast notice:', bcErr);
+  }
+
+  // 4. Insert notifications for each super_admin and dispatch_admin user
+  try {
+    const { data: adminRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['super_admin', 'dispatch_admin']);
+
+    if (adminRoles && adminRoles.length > 0) {
+      const notifRows = adminRoles.map((r: any) => ({
+        user_id: r.user_id,
+        title: '🚨🚨 EMERGENCY SOS TRIGGERED 🚨🚨',
+        body: `${driverName} pressed emergency SOS! Coordinates: (${alert.latitude.toFixed(4)}, ${alert.longitude.toFixed(4)})`,
+        type: 'emergency_sos',
+      }));
+      await supabase.from('notifications').insert(notifRows);
+
+      // 5. Fire lock-screen push notifications to admin devices
+      const adminIds = adminRoles.map((r: any) => r.user_id);
+      const { data: subs } = await supabase
+        .from('push_subscriptions')
+        .select('endpoint')
+        .in('user_id', adminIds);
+
+      const tokens = (subs || [])
+        .filter((s: any) => s.endpoint?.startsWith('ExponentPushToken'))
+        .map((s: any) => s.endpoint);
+
+      if (tokens.length > 0) {
+        fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(
+            tokens.map((to) => ({
+              to,
+              sound: 'default',
+              title: '🚨🚨 EMERGENCY SOS TRIGGERED 🚨🚨',
+              body: `${driverName} pressed SOS! Coordinates: ${alert.latitude.toFixed(4)}, ${alert.longitude.toFixed(4)}`,
+              priority: 'high',
+              channelId: 'default',
+            }))
+          ),
+        }).catch(() => {});
+      }
+    }
+  } catch (notifErr) {
+    console.warn('[EmergencySOS] Admin notification notice:', notifErr);
+  }
 }
 
 export async function fetchDriverCertifications(driverId: string): Promise<any[]> {
