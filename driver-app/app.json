@@ -54,6 +54,13 @@
         {
           "cameraPermission": "Allow Jodha Driver to access your camera to take delivery proof photos."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#2563eb"
+        }
       ]
     ]
   }
