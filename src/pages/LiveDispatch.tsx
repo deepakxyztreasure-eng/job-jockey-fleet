@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
@@ -19,6 +20,7 @@ import {
   RefreshCw,
   Navigation,
   ShieldAlert,
+  ClipboardList,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -279,6 +281,7 @@ async function geocodeAddressCoordinates(address: string): Promise<{ lat: number
 }
 
 export default function LiveDispatch() {
+  const navigate = useNavigate();
   const { role, user } = useAuth();
   const { isLoaded: isMapsLoaded, loadError: mapsError } = useGoogleMaps();
 
@@ -903,6 +906,14 @@ export default function LiveDispatch() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 text-xs gap-1"
+            onClick={() => navigate("/checkout-logs")}
+          >
+            <ClipboardList className="h-3.5 w-3.5 mr-1" /> Checklist & Timesheets
+          </Button>
           <Button
             size="sm"
             variant="outline"
