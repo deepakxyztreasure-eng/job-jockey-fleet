@@ -55,7 +55,7 @@ begin
 end;
 $$;
 
-grant execute on function public.link_driver_account to authenticated;
+grant execute on function public.link_driver_account() to authenticated;
 
 -- 3. ENABLE REALTIME PUBLICATION
 do $$
