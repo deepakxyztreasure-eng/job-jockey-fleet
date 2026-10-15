@@ -10,7 +10,8 @@ export function useGoogleMaps() {
   });
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+  const DEFAULT_GOOGLE_MAPS_KEY = "AIzaSyCAPYcCyZfs_3qpFv09bcU3VRRdoEwAIek";
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || DEFAULT_GOOGLE_MAPS_KEY;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
