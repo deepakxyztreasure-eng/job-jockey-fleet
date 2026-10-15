@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "Jodha Driver",
+    "slug": "jodha-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.jodhagroup.driver",
+      "config": {
+        "googleMapsApiKey": "AIzaSyCAPYcCyZfs_3qpFv09bcU3VRRdoEwAIek"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
+        "NSLocationWhenInUseUsageDescription": "Jodha Driver requires your location while using the app to guide you to delivery sites and communicate status to dispatch.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Continuous background location is required to provide accurate customer ETAs and satisfy NHVR safety compliance while on duty.",
+        "NSCameraUsageDescription": "Camera access is needed to capture delivery proof photos, customer dockets, and vehicle defect reports.",
+        "NSPhotoLibraryUsageDescription": "Photo library access is needed to select delivery proof images."
+      }
+    },
+    "android": {
+      "package": "app.jodhagroup.driver",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCAPYcCyZfs_3qpFv09bcU3VRRdoEwAIek"
+        }
+      },
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f172a"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "WAKE_LOCK"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Jodha Driver to use your location in the background for active delivery route tracking."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Jodha Driver to access your camera to take delivery proof photos."
+        }
+      ]
+    ]
+  }
+}

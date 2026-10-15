@@ -3,7 +3,7 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Briefcase, Users, MapPin, ShieldCheck, Truck, Bell, LogOut, UserCog, Tag, ClipboardList, History, DatabaseBackup } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, MapPin, ShieldCheck, Truck, Bell, LogOut, UserCog, Tag, ClipboardList, History, DatabaseBackup, Radio } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/jodha/logo.jpg";
@@ -16,6 +16,7 @@ export function AppSidebar() {
 
   const adminItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+    { title: "Live Dispatch", url: "/dispatch", icon: Radio },
     { title: "Jobs", url: "/jobs", icon: Briefcase },
     { title: "History", url: "/history", icon: History },
     { title: "Drivers", url: "/drivers", icon: Users },
@@ -29,12 +30,14 @@ export function AppSidebar() {
   ];
   const memberItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+    { title: "Live Dispatch", url: "/dispatch", icon: Radio },
     { title: "Jobs", url: "/jobs", icon: Briefcase },
     { title: "History", url: "/history", icon: History },
     { title: "Notifications", url: "/notifications", icon: Bell },
   ];
   const dispatchItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+    { title: "Live Dispatch", url: "/dispatch", icon: Radio },
     { title: "Jobs", url: "/jobs", icon: Briefcase },
     { title: "History", url: "/history", icon: History },
     { title: "Notifications", url: "/notifications", icon: Bell },

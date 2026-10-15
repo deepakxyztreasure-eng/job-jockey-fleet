@@ -18,6 +18,7 @@ import JobTitles from "@/pages/JobTitles";
 import CheckoutLogs from "@/pages/CheckoutLogs";
 import Notifications from "@/pages/Notifications";
 import Backup from "@/pages/Backup";
+import LiveDispatch from "@/pages/LiveDispatch";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dispatch" element={<ProtectedRoute roles={["super_admin", "dispatch_admin", "member"]}><LiveDispatch /></ProtectedRoute>} />
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/history" element={<Jobs />} />
               <Route path="/drivers" element={<ProtectedRoute roles={["super_admin"]}><Drivers /></ProtectedRoute>} />
