@@ -104,6 +104,61 @@ interface JobMessage {
   created_at: string;
 }
 
+function createTruckSvg(fillColor: string, heading: number = 0, isEmergency: boolean = false) {
+  const rot = heading || 0;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 46 46">
+      <defs>
+        <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.45"/>
+        </filter>
+      </defs>
+      <!-- Radar Pulse Ripple (Ola/Uber/Swiggy Live Telemetry Beacon) -->
+      <circle cx="23" cy="23" r="21" fill="${isEmergency ? "#ef4444" : fillColor}" fill-opacity="0.22" stroke="${isEmergency ? "#ef4444" : fillColor}" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+      <!-- Rotated Heavy Tipper Truck Body -->
+      <g transform="rotate(${rot} 23 23)" filter="url(#shadow)">
+        <!-- Heavy Dual Wheels -->
+        <rect x="9" y="13" width="3.5" height="6.5" rx="1.5" fill="#0f172a"/>
+        <rect x="33.5" y="13" width="3.5" height="6.5" rx="1.5" fill="#0f172a"/>
+        <rect x="9" y="23" width="3.5" height="6.5" rx="1.5" fill="#0f172a"/>
+        <rect x="33.5" y="23" width="3.5" height="6.5" rx="1.5" fill="#0f172a"/>
+        <rect x="9" y="30.5" width="3.5" height="6.5" rx="1.5" fill="#0f172a"/>
+        <rect x="33.5" y="30.5" width="3.5" height="6.5" rx="1.5" fill="#0f172a"/>
+
+        <!-- Tipper Bin Body (Rear) -->
+        <rect x="12.5" y="19" width="21" height="18.5" rx="2" fill="${fillColor}" stroke="#ffffff" stroke-width="1.8"/>
+        <!-- Steel Ribs -->
+        <line x1="12.5" y1="25" x2="33.5" y2="25" stroke="#ffffff" stroke-width="1" stroke-opacity="0.6"/>
+        <line x1="12.5" y1="31" x2="33.5" y2="31" stroke="#ffffff" stroke-width="1" stroke-opacity="0.6"/>
+
+        <!-- Truck Cab (Front) -->
+        <path d="M 13.5 19 L 13.5 12 C 13.5 9 15.5 7 18.5 7 L 27.5 7 C 30.5 7 32.5 9 32.5 12 L 32.5 19 Z" fill="#0f172a" stroke="#ffffff" stroke-width="1.8"/>
+        <!-- Panoramic Windshield -->
+        <path d="M 15.5 14 L 15.5 11 C 15.5 9.5 16.5 8.5 19 8.5 L 27 8.5 C 29.5 8.5 30.5 9.5 30.5 11 L 30.5 14 Z" fill="#38bdf8"/>
+        <!-- Headlights -->
+        <circle cx="16.5" cy="7.5" r="1.3" fill="#fef08a"/>
+        <circle cx="29.5" cy="7.5" r="1.3" fill="#fef08a"/>
+      </g>
+    </svg>
+  `)}`;
+}
+
+function createPinSvg(label: string, color: string = "#dc2626") {
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
+      <defs>
+        <filter id="pShad" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.4"/>
+        </filter>
+      </defs>
+      <path d="M 16 0 C 7.16 0 0 7.16 0 16 C 0 28 16 42 16 42 C 16 42 32 28 32 16 C 32 7.16 24.84 0 16 0 Z" fill="${color}" stroke="#ffffff" stroke-width="2" filter="url(#pShad)"/>
+      <circle cx="16" cy="15" r="9" fill="#ffffff"/>
+      <text x="16" y="19" font-family="Arial, sans-serif" font-size="11" font-weight="900" fill="${color}" text-anchor="middle">${label}</text>
+    </svg>
+  `)}`;
+}
+
 export default function LiveDispatch() {
   const { role, user } = useAuth();
   const { isLoaded: isMapsLoaded, loadError: mapsError } = useGoogleMaps();
@@ -139,7 +194,10 @@ export default function LiveDispatch() {
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
   const destMarkersRef = useRef<Map<string, any>>(new Map());
+  const pickupMarkersRef = useRef<Map<string, any>>(new Map());
   const polylineRef = useRef<Map<string, any>>(new Map());
+  const directionsServiceRef = useRef<any>(null);
+  const chatChannelRef = useRef<any>(null);
 
   // 1. Initial Data Fetch
   const loadInitialData = useCallback(async () => {
@@ -282,7 +340,7 @@ export default function LiveDispatch() {
     mapInstanceRef.current = map;
   }, [isMapsLoaded]);
 
-  // 3. Update Markers & Polylines when Locations or Active Jobs Change
+  // 3. Update Markers & Polylines when Locations or Active Jobs Change (Ola/Uber/Zomato style)
   useEffect(() => {
     if (!isMapsLoaded || !mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -290,6 +348,12 @@ export default function LiveDispatch() {
 
     const bounds = new gmaps.LatLngBounds();
     let hasCoords = false;
+
+    // Initialize DirectionsService if not yet created
+    if (!directionsServiceRef.current) {
+      directionsServiceRef.current = new gmaps.DirectionsService();
+    }
+    const directionsService = directionsServiceRef.current;
 
     drivers.forEach((driver) => {
       const loc = locations[driver.id];
@@ -301,15 +365,24 @@ export default function LiveDispatch() {
         bounds.extend(pos);
         hasCoords = true;
 
-        // Truck Marker color based on status
-        let fillColor = "#2563eb"; // blue: default/available
-        if (hasEmergency) fillColor = "#dc2626"; // red: emergency
-        else if (job && job.status === "in_progress") fillColor = "#16a34a"; // green: in transit
-        else if (job) fillColor = "#f59e0b"; // amber: assigned/accepted
+        // Color coding: Blue (Available), Green (In Transit), Amber (Assigned), Red (Emergency SOS)
+        let fillColor = "#2563eb";
+        if (hasEmergency) fillColor = "#dc2626";
+        else if (job && job.status === "in_progress") fillColor = "#16a34a";
+        else if (job) fillColor = "#f59e0b";
 
         const markerTitle = `${driver.full_name} (${driver.vehicle || "Truck"})`;
+        const truckIconUrl = createTruckSvg(fillColor, loc.heading || 0, hasEmergency);
 
-        // Update or create truck marker
+        const driverLabel = {
+          text: `${driver.full_name.split(" ")[0]}${loc.speed != null ? ` • ${Math.round(loc.speed)}km/h` : ""}`,
+          color: "#ffffff",
+          fontWeight: "700",
+          fontSize: "11px",
+          className: "bg-slate-900/95 text-white font-bold px-2 py-0.5 rounded shadow border border-slate-700 text-[10px]",
+        };
+
+        // 1. Heavy Tipper Truck Marker with Dynamic Heading Rotation
         let marker = markersRef.current.get(driver.id);
         if (!marker) {
           marker = new gmaps.Marker({
@@ -317,21 +390,11 @@ export default function LiveDispatch() {
             map: map,
             title: markerTitle,
             icon: {
-              path: "M 0,-15 L 12,10 L 0,5 L -12,10 Z", // Arrow / Heading needle
-              fillColor: fillColor,
-              fillOpacity: 1,
-              scale: 1.4,
-              strokeColor: "#ffffff",
-              strokeWeight: 2,
-              rotation: loc.heading || 0,
+              url: truckIconUrl,
+              scaledSize: new gmaps.Size(46, 46),
+              anchor: new gmaps.Point(23, 23),
             },
-            label: {
-              text: driver.full_name.split(" ")[0],
-              color: "#0f172a",
-              fontWeight: "700",
-              fontSize: "11px",
-              className: "font-semibold bg-white/90 px-1 rounded shadow-sm",
-            },
+            label: driverLabel,
           });
 
           marker.addListener("click", () => {
@@ -342,46 +405,115 @@ export default function LiveDispatch() {
         } else {
           marker.setPosition(pos);
           marker.setIcon({
-            path: "M 0,-15 L 12,10 L 0,5 L -12,10 Z",
-            fillColor: fillColor,
-            fillOpacity: 1,
-            scale: 1.4,
-            strokeColor: "#ffffff",
-            strokeWeight: 2,
-            rotation: loc.heading || 0,
+            url: truckIconUrl,
+            scaledSize: new gmaps.Size(46, 46),
+            anchor: new gmaps.Point(23, 23),
           });
+          marker.setLabel(driverLabel);
         }
 
-        // Calculate Google Driving ETA to Customer Delivery Address if job is in progress
-        if (job && job.delivery_address && !etas[driver.id]) {
-          try {
-            const service = new gmaps.DistanceMatrixService();
-            service.getDistanceMatrix(
-              {
-                origins: [pos],
-                destinations: [job.delivery_address],
-                travelMode: gmaps.TravelMode.DRIVING,
-              },
-              (response: any, status: any) => {
-                if (status === "OK" && response?.rows?.[0]?.elements?.[0]?.status === "OK") {
-                  const element = response.rows[0].elements[0];
+        // 2. Interactive Route Polyline & End Point "B" Marker (Ola/Uber/Swiggy Style)
+        if (job && job.delivery_address) {
+          directionsService.route(
+            {
+              origin: pos,
+              destination: job.delivery_address,
+              travelMode: gmaps.TravelMode.DRIVING,
+            },
+            (result: any, status: any) => {
+              if (status === "OK" && result?.routes?.[0]) {
+                const route = result.routes[0];
+                const leg = route.legs?.[0];
+
+                if (leg) {
+                  // Update Live ETA
                   setEtas((prev) => ({
                     ...prev,
-                    [driver.id]: `${element.duration.text} (${element.distance.text})`,
+                    [driver.id]: `${leg.duration.text} (${leg.distance.text})`,
                   }));
+
+                  // Destination Pin "B"
+                  let destMarker = destMarkersRef.current.get(driver.id);
+                  if (!destMarker) {
+                    destMarker = new gmaps.Marker({
+                      position: leg.end_location,
+                      map: map,
+                      title: `Customer Delivery Site: ${job.delivery_address}`,
+                      icon: {
+                        url: createPinSvg("B", "#dc2626"),
+                        scaledSize: new gmaps.Size(32, 42),
+                        anchor: new gmaps.Point(16, 42),
+                      },
+                    });
+                    destMarkersRef.current.set(driver.id, destMarker);
+                  } else {
+                    destMarker.setPosition(leg.end_location);
+                    destMarker.setMap(map);
+                  }
+
+                  // Optional Pickup Pin "A" (Quarry / Depot)
+                  if (job.pickup_address) {
+                    let pickMarker = pickupMarkersRef.current.get(driver.id);
+                    if (!pickMarker) {
+                      pickMarker = new gmaps.Marker({
+                        position: leg.start_location,
+                        map: map,
+                        title: `Pickup Quarry: ${job.pickup_address}`,
+                        icon: {
+                          url: createPinSvg("A", "#f59e0b"),
+                          scaledSize: new gmaps.Size(32, 42),
+                          anchor: new gmaps.Point(16, 42),
+                        },
+                      });
+                      pickupMarkersRef.current.set(driver.id, pickMarker);
+                    } else {
+                      pickMarker.setMap(map);
+                    }
+                  }
+
+                  // Draw Active Road Polyline
+                  let poly = polylineRef.current.get(driver.id);
+                  if (poly) poly.setMap(null);
+
+                  poly = new gmaps.Polyline({
+                    path: route.overview_path,
+                    geodesic: true,
+                    strokeColor: "#2563eb",
+                    strokeOpacity: 0.85,
+                    strokeWeight: 5,
+                    map: map,
+                  });
+                  polylineRef.current.set(driver.id, poly);
                 }
               }
-            );
-          } catch {}
+            }
+          );
+        } else {
+          // Clean up old route if job is completed or none
+          const oldPoly = polylineRef.current.get(driver.id);
+          if (oldPoly) {
+            oldPoly.setMap(null);
+            polylineRef.current.delete(driver.id);
+          }
+          const oldDest = destMarkersRef.current.get(driver.id);
+          if (oldDest) {
+            oldDest.setMap(null);
+            destMarkersRef.current.delete(driver.id);
+          }
+          const oldPick = pickupMarkersRef.current.get(driver.id);
+          if (oldPick) {
+            oldPick.setMap(null);
+            pickupMarkersRef.current.delete(driver.id);
+          }
         }
       }
     });
 
     if (hasCoords && mapInstanceRef.current && !selectedDriver) {
-      map.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+      map.fitBounds(bounds, { top: 60, bottom: 60, left: 60, right: 60 });
       if (map.getZoom() > 14) map.setZoom(14);
     }
-  }, [drivers, locations, activeJobs, emergencies, isMapsLoaded, etas, selectedDriver]);
+  }, [drivers, locations, activeJobs, emergencies, isMapsLoaded, selectedDriver]);
 
   // Center Map on Driver
   const focusDriver = (driver: Driver) => {
@@ -395,18 +527,63 @@ export default function LiveDispatch() {
     }
   };
 
-  // Open Chat with Driver
+  // Open Chat with Driver (with Supabase Realtime Broadcast & DB Fallback)
   const openChatWithDriver = async (driver: Driver) => {
     setChatDriver(driver);
     setChatOpen(true);
+
+    // 1. Load history from DB if available
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("job_messages")
         .select("*")
         .eq("driver_id", driver.id)
         .order("created_at", { ascending: true });
-      setChatMessages(data || []);
-    } catch {}
+      if (!error && data) {
+        setChatMessages(data);
+      } else {
+        setChatMessages([]);
+      }
+    } catch {
+      setChatMessages([]);
+    }
+
+    // 2. Setup Realtime Broadcast channel (enables instant peer-to-peer WebSocket chat without DB table)
+    if (chatChannelRef.current) {
+      supabase.removeChannel(chatChannelRef.current);
+    }
+
+    const channelName = `dispatch-chat-${driver.id}`;
+    const channel = supabase
+      .channel(channelName)
+      .on("broadcast", { event: "dispatch_message" }, (payload: any) => {
+        if (payload?.payload) {
+          const newMsg = payload.payload as JobMessage;
+          setChatMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+        }
+      })
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "job_messages",
+          filter: `driver_id=eq.${driver.id}`,
+        },
+        (payload: any) => {
+          const newMsg = payload.new as JobMessage;
+          setChatMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+        }
+      )
+      .subscribe();
+
+    chatChannelRef.current = channel;
   };
 
   // Send Dispatch Instruction Chat Message
@@ -416,25 +593,42 @@ export default function LiveDispatch() {
     setChatInput("");
     setChatSending(true);
 
+    const tempId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const msg: JobMessage = {
+      id: tempId,
+      driver_id: chatDriver.id,
+      sender_id: user?.id || "dispatch",
+      sender_name: "Dispatch Office",
+      sender_role: "dispatcher",
+      message_text: text,
+      created_at: new Date().toISOString(),
+    };
+
+    // Show immediately in dispatch UI
+    setChatMessages((prev) => [...prev, msg]);
+
+    // Broadcast over WebSocket directly to driver mobile app
+    if (chatChannelRef.current) {
+      chatChannelRef.current.send({
+        type: "broadcast",
+        event: "dispatch_message",
+        payload: msg,
+      });
+    }
+
+    // Also attempt DB insert in background (fails gracefully if table not yet created)
     try {
-      const payload = {
+      await supabase.from("job_messages").insert({
         driver_id: chatDriver.id,
         sender_id: user?.id || "dispatch",
         sender_name: "Dispatch Office",
         sender_role: "dispatcher",
         message_text: text,
-      };
+      });
+    } catch {}
 
-      const { data, error } = await supabase.from("job_messages").insert(payload).select().single();
-      if (!error && data) {
-        setChatMessages((prev) => [...prev, data]);
-        toast.success(`Instruction sent to ${chatDriver.full_name}`);
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send message");
-    } finally {
-      setChatSending(false);
-    }
+    setChatSending(false);
+    toast.success(`Instruction sent to ${chatDriver.full_name}`);
   };
 
   // Complete / Verify Job
@@ -781,6 +975,136 @@ export default function LiveDispatch() {
               <span className="text-slate-300">Emergency Alert (SOS)</span>
             </div>
           </div>
+
+          {/* Floating Live Trip Progress Card (Ola/Uber/Zomato Style) */}
+          {selectedDriver && (
+            <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-[460px] bg-slate-950/95 border border-slate-700/80 rounded-2xl shadow-2xl backdrop-blur-md p-4 text-slate-100 z-20 transition-all animate-in fade-in slide-in-from-bottom-4">
+              {/* Header: Driver info + Speed + Close */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center font-bold text-white shadow">
+                      {selectedDriver.full_name.charAt(0)}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-slate-950 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm text-white">{selectedDriver.full_name}</h3>
+                      {selectedDriver.vehicle && (
+                        <Badge className="bg-slate-800 text-slate-300 text-[10px] py-0 border-slate-700">
+                          {selectedDriver.vehicle}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 flex items-center gap-2">
+                      <span>📞 {selectedDriver.phone || "No phone"}</span>
+                      <span>•</span>
+                      <span className="text-emerald-400 font-semibold">
+                        {locations[selectedDriver.id]?.speed != null
+                          ? `${Math.round(locations[selectedDriver.id]!.speed!)} km/h`
+                          : "Stationary"}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0 text-slate-400 hover:text-white rounded-full"
+                  onClick={() => setSelectedDriver(null)}
+                >
+                  ✕
+                </Button>
+              </div>
+
+              {/* Trip Stepper & ETA (Ola/Uber/Zomato style) */}
+              {activeJobs[selectedDriver.id] ? (
+                <div className="py-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-orange-400">
+                      Job #{activeJobs[selectedDriver.id].job_number || ""}: {activeJobs[selectedDriver.id].title}
+                    </span>
+                    {etas[selectedDriver.id] && (
+                      <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs px-2 py-0.5 font-semibold">
+                        ⏱️ {etas[selectedDriver.id]}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Visual Route Line: A -> Truck -> B */}
+                  <div className="bg-slate-900/90 rounded-xl p-3 border border-slate-800/80 space-y-2">
+                    {/* Pickup Point A */}
+                    <div className="flex items-start gap-2.5">
+                      <span className="h-5 w-5 rounded-full bg-amber-500/20 border border-amber-500 text-amber-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                        A
+                      </span>
+                      <div className="text-xs flex-1 min-w-0">
+                        <p className="text-slate-400 text-[10px] font-semibold uppercase">Pickup / Quarry</p>
+                        <p className="text-slate-200 font-medium truncate">
+                          {activeJobs[selectedDriver.id].pickup_address || "Quarry / Depot"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Dotted connector */}
+                    <div className="ml-2.5 border-l-2 border-dashed border-blue-500/60 h-3" />
+
+                    {/* Destination Point B */}
+                    <div className="flex items-start gap-2.5">
+                      <span className="h-5 w-5 rounded-full bg-red-500/20 border border-red-500 text-red-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                        B
+                      </span>
+                      <div className="text-xs flex-1 min-w-0">
+                        <p className="text-slate-400 text-[10px] font-semibold uppercase">Delivery Customer Site</p>
+                        <p className="text-slate-200 font-medium truncate">
+                          {activeJobs[selectedDriver.id].delivery_address || "Customer Address"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-3 text-xs text-slate-400">
+                  Driver is currently available and waiting for job assignment.
+                </div>
+              )}
+
+              {/* Quick Action Footer */}
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+                <Button
+                  size="sm"
+                  className="flex-1 bg-orange-600 hover:bg-orange-500 text-white text-xs h-8"
+                  onClick={() => openChatWithDriver(selectedDriver)}
+                >
+                  <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> Dispatch Chat
+                </Button>
+
+                {selectedDriver.phone && (
+                  <a href={`tel:${selectedDriver.phone}`} className="flex-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs h-8"
+                    >
+                      <Phone className="h-3.5 w-3.5 mr-1.5 text-emerald-400" /> Call Driver
+                    </Button>
+                  </a>
+                )}
+
+                {activeJobs[selectedDriver.id] && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-emerald-700/60 bg-emerald-950/60 hover:bg-emerald-900 text-emerald-300 text-xs h-8"
+                    onClick={() => setVerifyJob(activeJobs[selectedDriver.id])}
+                  >
+                    <FileCheck className="h-3.5 w-3.5 mr-1" /> POD
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

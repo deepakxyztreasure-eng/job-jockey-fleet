@@ -31,13 +31,24 @@ export const DispatchChatScreen: React.FC<DispatchChatScreenProps> = ({
   const [messages, setMessages] = useState<JobMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     loadMessages();
 
-    // Setup Supabase Realtime channel for incoming dispatch messages
+    // Setup Supabase Realtime channel for instant dispatch broadcast & DB events
+    const channelName = `dispatch-chat-${driverId}`;
     const channel = supabase
-      .channel('driver-chat-rt')
+      .channel(channelName)
+      .on('broadcast', { event: 'dispatch_message' }, (payload: any) => {
+        if (payload?.payload) {
+          const newMsg = payload.payload as JobMessage;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -56,6 +67,8 @@ export const DispatchChatScreen: React.FC<DispatchChatScreenProps> = ({
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
       supabase.removeChannel(channel);
     };
@@ -71,9 +84,8 @@ export const DispatchChatScreen: React.FC<DispatchChatScreenProps> = ({
     const text = inputText.trim();
     setInputText('');
 
-    // Optimistic message
-    const tempId = `temp_${Date.now()}`;
-    const optimisticMsg: JobMessage = {
+    const tempId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const msg: JobMessage = {
       id: tempId,
       driver_id: driverId,
       sender_id: userId,
@@ -83,14 +95,26 @@ export const DispatchChatScreen: React.FC<DispatchChatScreenProps> = ({
       created_at: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, optimisticMsg]);
+    // Show immediately in driver UI
+    setMessages((prev) => [...prev, msg]);
 
-    try {
-      const realMsg = await sendChatMessage(driverId, userId, driverName, text);
-      setMessages((prev) => prev.map((m) => (m.id === tempId ? realMsg : m)));
-    } catch (err) {
-      console.warn('Failed to send message:', err);
+    // Broadcast over WebSocket directly to Web Live Dispatch
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'dispatch_message',
+        payload: msg,
+      });
     }
+
+    // Also persist to DB in background
+    sendChatMessage(driverId, userId, driverName, text)
+      .then((saved) => {
+        if (saved?.id && saved.id !== tempId) {
+          setMessages((prev) => prev.map((m) => (m.id === tempId ? saved : m)));
+        }
+      })
+      .catch(() => {});
   };
 
   return (
