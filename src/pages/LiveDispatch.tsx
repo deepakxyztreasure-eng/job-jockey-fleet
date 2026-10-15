@@ -159,6 +159,125 @@ function createPinSvg(label: string, color: string = "#dc2626") {
   `)}`;
 }
 
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCAPYcCyZfs_3qpFv09bcU3VRRdoEwAIek";
+
+interface LiveRouteResult {
+  path: Array<{ lat: number; lng: number }>;
+  destCoords: { lat: number; lng: number };
+  durationText: string;
+  distanceText: string;
+}
+
+// Multi-Tier Live Route Fetcher: Routes API v2 -> Geocoding Fallback
+async function fetchLiveTravelingRoute(
+  originLat: number,
+  originLng: number,
+  destinationAddress: string
+): Promise<LiveRouteResult | null> {
+  if (!originLat || !originLng || !destinationAddress) return null;
+
+  // Tier 1: Modern Google Routes API v2
+  try {
+    const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+        "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline",
+      },
+      body: JSON.stringify({
+        origin: { location: { latLng: { latitude: originLat, longitude: originLng } } },
+        destination: { address: destinationAddress },
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_AWARE",
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.routes && data.routes[0]) {
+        const route = data.routes[0];
+        const gmaps = (window as any).google?.maps;
+        let path: Array<{ lat: number; lng: number }> = [];
+
+        if (route.polyline?.encodedPolyline && gmaps?.geometry?.encoding) {
+          const decoded = gmaps.geometry.encoding.decodePath(route.polyline.encodedPolyline);
+          path = decoded.map((p: any) => ({ lat: p.lat(), lng: p.lng() }));
+        }
+
+        const durationSec = parseInt((route.duration || "0s").replace("s", ""), 10) || 60;
+        const distMeters = route.distanceMeters || 0;
+        const durationText =
+          durationSec >= 3600
+            ? `${Math.floor(durationSec / 3600)}h ${Math.round((durationSec % 3600) / 60)}m`
+            : `${Math.max(1, Math.round(durationSec / 60))} mins`;
+        const distanceText =
+          distMeters >= 1000
+            ? `${(distMeters / 1000).toFixed(1)} km`
+            : `${distMeters} m`;
+
+        const destCoords =
+          path.length > 0
+            ? path[path.length - 1]
+            : { lat: originLat, lng: originLng };
+
+        return { path, destCoords, durationText, distanceText };
+      }
+    }
+  } catch (err) {
+    console.warn("Routes API note:", err);
+  }
+
+  // Tier 2: Geocoding + Geodesic Navigation Fallback (Guarantees visible line for remote sites/quarries)
+  try {
+    const geoUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destinationAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
+    const geoRes = await fetch(geoUrl);
+    const geoData = await geoRes.json();
+    if (geoData.status === "OK" && geoData.results?.[0]?.geometry?.location) {
+      const loc = geoData.results[0].geometry.location;
+      const destCoords = { lat: loc.lat, lng: loc.lng };
+      const dLat = ((destCoords.lat - originLat) * Math.PI) / 180;
+      const dLng = ((destCoords.lng - originLng) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((originLat * Math.PI) / 180) *
+          Math.cos((destCoords.lat * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distKm = 6371 * c * 1.3;
+      const durationMins = Math.max(2, Math.round((distKm / 45) * 60));
+
+      return {
+        path: [
+          { lat: originLat, lng: originLng },
+          { lat: destCoords.lat, lng: destCoords.lng },
+        ],
+        destCoords,
+        durationText: `${durationMins} mins`,
+        distanceText: `${distKm.toFixed(1)} km`,
+      };
+    }
+  } catch (geoErr) {
+    console.warn("Geocoding fallback note:", geoErr);
+  }
+
+  return null;
+}
+
+async function geocodeAddressCoordinates(address: string): Promise<{ lat: number; lng: number } | null> {
+  if (!address) return null;
+  try {
+    const geoUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+    const res = await fetch(geoUrl);
+    const data = await res.json();
+    if (data.status === "OK" && data.results?.[0]?.geometry?.location) {
+      return { lat: data.results[0].geometry.location.lat, lng: data.results[0].geometry.location.lng };
+    }
+  } catch {}
+  return null;
+}
+
 export default function LiveDispatch() {
   const { role, user } = useAuth();
   const { isLoaded: isMapsLoaded, loadError: mapsError } = useGoogleMaps();
@@ -196,6 +315,10 @@ export default function LiveDispatch() {
   const destMarkersRef = useRef<Map<string, any>>(new Map());
   const pickupMarkersRef = useRef<Map<string, any>>(new Map());
   const polylineRef = useRef<Map<string, any>>(new Map());
+  const trailPolylineRef = useRef<Map<string, any>>(new Map());
+  const destCoordsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const pickupCoordsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const routeCacheRef = useRef<Map<string, { result: LiveRouteResult; timestamp: number }>>(new Map());
   const directionsServiceRef = useRef<any>(null);
   const chatChannelRef = useRef<any>(null);
 
@@ -210,16 +333,28 @@ export default function LiveDispatch() {
         .order("full_name");
       if (drvData) setDrivers(drvData);
 
-      // Jobs (active & in-progress)
+      // Jobs (active & in-progress, prioritized)
       const { data: jobData } = await supabase
         .from("jobs")
         .select("*")
         .in("status", ["in_progress", "accepted", "assigned", "completion_requested"]);
       if (jobData) {
+        const statusRank: Record<string, number> = {
+          in_progress: 4,
+          completion_requested: 3,
+          accepted: 2,
+          assigned: 1,
+        };
+
         const jobMap: Record<string, ActiveJob> = {};
         jobData.forEach((j: ActiveJob) => {
           if (j.assigned_driver_id) {
-            jobMap[j.assigned_driver_id] = j;
+            const existing = jobMap[j.assigned_driver_id];
+            const currentRank = statusRank[j.status] || 0;
+            const existingRank = existing ? statusRank[existing.status] || 0 : -1;
+            if (currentRank > existingRank) {
+              jobMap[j.assigned_driver_id] = j;
+            }
           }
         });
         setActiveJobs(jobMap);
@@ -412,88 +547,123 @@ export default function LiveDispatch() {
           marker.setLabel(driverLabel);
         }
 
-        // 2. Interactive Route Polyline & End Point "B" Marker (Ola/Uber/Swiggy Style)
+        // 2. Start-to-End Live Traveling Polyline (Ola / Uber / Swiggy Style)
         if (job && job.delivery_address) {
-          directionsService.route(
-            {
-              origin: pos,
-              destination: job.delivery_address,
-              travelMode: gmaps.TravelMode.DRIVING,
-            },
-            (result: any, status: any) => {
-              if (status === "OK" && result?.routes?.[0]) {
-                const route = result.routes[0];
-                const leg = route.legs?.[0];
+          const cacheKey = `${driver.id}_${job.id}_${pos.lat.toFixed(3)}_${pos.lng.toFixed(3)}`;
+          const cached = routeCacheRef.current.get(cacheKey);
 
-                if (leg) {
-                  // Update Live ETA
-                  setEtas((prev) => ({
-                    ...prev,
-                    [driver.id]: `${leg.duration.text} (${leg.distance.text})`,
-                  }));
+          const applyRoute = (routeData: LiveRouteResult) => {
+            // Update Live ETA
+            setEtas((prev) => ({
+              ...prev,
+              [driver.id]: `${routeData.durationText} (${routeData.distanceText})`,
+            }));
 
-                  // Destination Pin "B"
-                  let destMarker = destMarkersRef.current.get(driver.id);
-                  if (!destMarker) {
-                    destMarker = new gmaps.Marker({
-                      position: leg.end_location,
-                      map: map,
-                      title: `Customer Delivery Site: ${job.delivery_address}`,
-                      icon: {
-                        url: createPinSvg("B", "#dc2626"),
-                        scaledSize: new gmaps.Size(32, 42),
-                        anchor: new gmaps.Point(16, 42),
-                      },
-                    });
-                    destMarkersRef.current.set(driver.id, destMarker);
-                  } else {
-                    destMarker.setPosition(leg.end_location);
-                    destMarker.setMap(map);
-                  }
+            destCoordsRef.current.set(driver.id, routeData.destCoords);
 
-                  // Optional Pickup Pin "A" (Quarry / Depot)
-                  if (job.pickup_address) {
-                    let pickMarker = pickupMarkersRef.current.get(driver.id);
-                    if (!pickMarker) {
-                      pickMarker = new gmaps.Marker({
-                        position: leg.start_location,
-                        map: map,
-                        title: `Pickup Quarry: ${job.pickup_address}`,
-                        icon: {
-                          url: createPinSvg("A", "#f59e0b"),
-                          scaledSize: new gmaps.Size(32, 42),
-                          anchor: new gmaps.Point(16, 42),
-                        },
-                      });
-                      pickupMarkersRef.current.set(driver.id, pickMarker);
-                    } else {
-                      pickMarker.setMap(map);
-                    }
-                  }
-
-                  // Draw Active Road Polyline
-                  let poly = polylineRef.current.get(driver.id);
-                  if (poly) poly.setMap(null);
-
-                  poly = new gmaps.Polyline({
-                    path: route.overview_path,
-                    geodesic: true,
-                    strokeColor: "#2563eb",
-                    strokeOpacity: 0.85,
-                    strokeWeight: 5,
-                    map: map,
-                  });
-                  polylineRef.current.set(driver.id, poly);
-                }
-              }
+            // Destination Pin "B" (Customer Delivery Site)
+            let destMarker = destMarkersRef.current.get(driver.id);
+            if (!destMarker) {
+              destMarker = new gmaps.Marker({
+                position: routeData.destCoords,
+                map: map,
+                title: `Destination: ${job.delivery_address}`,
+                icon: {
+                  url: createPinSvg("B", "#dc2626"),
+                  scaledSize: new gmaps.Size(32, 42),
+                  anchor: new gmaps.Point(16, 42),
+                },
+              });
+              destMarkersRef.current.set(driver.id, destMarker);
+            } else {
+              destMarker.setPosition(routeData.destCoords);
+              destMarker.setMap(map);
             }
-          );
+
+            // Draw Active Traveling Road Polyline (Truck -> Customer Site)
+            let poly = polylineRef.current.get(driver.id);
+            if (poly) poly.setMap(null);
+
+            poly = new gmaps.Polyline({
+              path: routeData.path,
+              geodesic: true,
+              strokeColor: "#2563eb",
+              strokeOpacity: 0.95,
+              strokeWeight: 5,
+              map: map,
+            });
+            polylineRef.current.set(driver.id, poly);
+          };
+
+          if (cached && Date.now() - cached.timestamp < 30000) {
+            applyRoute(cached.result);
+          } else {
+            fetchLiveTravelingRoute(pos.lat, pos.lng, job.delivery_address).then((res) => {
+              if (res) {
+                routeCacheRef.current.set(cacheKey, { result: res, timestamp: Date.now() });
+                applyRoute(res);
+              }
+            });
+          }
+
+          // Start Point "A" (Quarry / Depot) & Traveled Trail
+          if (job.pickup_address) {
+            const handlePickupPin = (pCoords: { lat: number; lng: number }) => {
+              pickupCoordsRef.current.set(driver.id, pCoords);
+
+              let pickMarker = pickupMarkersRef.current.get(driver.id);
+              if (!pickMarker) {
+                pickMarker = new gmaps.Marker({
+                  position: pCoords,
+                  map: map,
+                  title: `Pickup Quarry: ${job.pickup_address}`,
+                  icon: {
+                    url: createPinSvg("A", "#f59e0b"),
+                    scaledSize: new gmaps.Size(32, 42),
+                    anchor: new gmaps.Point(16, 42),
+                  },
+                });
+                pickupMarkersRef.current.set(driver.id, pickMarker);
+              } else {
+                pickMarker.setPosition(pCoords);
+                pickMarker.setMap(map);
+              }
+
+              // Traveled Trail: subtle dashed line connecting Start Point "A" to moving Truck
+              let trailPoly = trailPolylineRef.current.get(driver.id);
+              if (trailPoly) trailPoly.setMap(null);
+
+              trailPoly = new gmaps.Polyline({
+                path: [pCoords, pos],
+                geodesic: true,
+                strokeColor: "#64748b",
+                strokeOpacity: 0.65,
+                strokeWeight: 3,
+                map: map,
+              });
+              trailPolylineRef.current.set(driver.id, trailPoly);
+            };
+
+            const existingPCoords = pickupCoordsRef.current.get(driver.id);
+            if (existingPCoords) {
+              handlePickupPin(existingPCoords);
+            } else {
+              geocodeAddressCoordinates(job.pickup_address).then((pCoords) => {
+                if (pCoords) handlePickupPin(pCoords);
+              });
+            }
+          }
         } else {
           // Clean up old route if job is completed or none
           const oldPoly = polylineRef.current.get(driver.id);
           if (oldPoly) {
             oldPoly.setMap(null);
             polylineRef.current.delete(driver.id);
+          }
+          const oldTrail = trailPolylineRef.current.get(driver.id);
+          if (oldTrail) {
+            oldTrail.setMap(null);
+            trailPolylineRef.current.delete(driver.id);
           }
           const oldDest = destMarkersRef.current.get(driver.id);
           if (oldDest) {
@@ -515,13 +685,28 @@ export default function LiveDispatch() {
     }
   }, [drivers, locations, activeJobs, emergencies, isMapsLoaded, selectedDriver]);
 
-  // Center Map on Driver
+  // Center Map on Driver & Auto-Frame Entire Trip (Start Point -> Truck -> Destination)
   const focusDriver = (driver: Driver) => {
     setSelectedDriver(driver);
     const loc = locations[driver.id];
     if (loc && mapInstanceRef.current) {
-      mapInstanceRef.current.panTo({ lat: loc.latitude, lng: loc.longitude });
-      mapInstanceRef.current.setZoom(15);
+      const gmaps = (window as any).google?.maps;
+      if (gmaps) {
+        const bounds = new gmaps.LatLngBounds();
+        bounds.extend({ lat: loc.latitude, lng: loc.longitude });
+
+        const dCoords = destCoordsRef.current.get(driver.id);
+        if (dCoords) bounds.extend(dCoords);
+
+        const pCoords = pickupCoordsRef.current.get(driver.id);
+        if (pCoords) bounds.extend(pCoords);
+
+        mapInstanceRef.current.fitBounds(bounds, { top: 90, bottom: 90, left: 90, right: 90 });
+        if (mapInstanceRef.current.getZoom() > 15) mapInstanceRef.current.setZoom(15);
+      } else {
+        mapInstanceRef.current.panTo({ lat: loc.latitude, lng: loc.longitude });
+        mapInstanceRef.current.setZoom(15);
+      }
     } else {
       toast.info(`No active GPS fix yet for ${driver.full_name}`);
     }
