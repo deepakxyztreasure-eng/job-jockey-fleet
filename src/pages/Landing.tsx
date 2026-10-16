@@ -330,7 +330,13 @@ export default function Landing() {
             <img src={logo} alt="Jodha Group" className="h-9 w-auto bg-white rounded px-1 py-0.5 object-contain" />
             <span>© {new Date().getFullYear()} Jodha Group — Quarry Products & Earthworks</span>
           </div>
-          <Link to="/auth" className="hover:text-white">Customer login →</Link>
+          <div className="flex items-center gap-5 text-xs sm:text-sm">
+            <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <span className="text-white/40">•</span>
+            <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+            <span className="text-white/40">•</span>
+            <Link to="/auth" className="hover:text-white transition-colors">Customer login →</Link>
+          </div>
         </div>
       </footer>
     </div>

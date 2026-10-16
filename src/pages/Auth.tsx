@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -383,6 +383,15 @@ export default function Auth() {
             </>
           )}
         </Card>
+
+        {/* Footer legal links */}
+        <div className="mt-6 text-center text-xs text-muted-foreground flex items-center justify-center gap-3">
+          <Link to="/" className="hover:underline">Home</Link>
+          <span>•</span>
+          <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
+          <span>•</span>
+          <Link to="/terms" className="hover:underline">Terms of Service</Link>
+        </div>
       </div>
     </div>
   );
