@@ -13,7 +13,11 @@
         "googleMapsApiKey": "AIzaSyCAPYcCyZfs_3qpFv09bcU3VRRdoEwAIek"
       },
       "infoPlist": {
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ],
         "NSLocationWhenInUseUsageDescription": "Jodha Driver requires your location while using the app to guide you to delivery sites and communicate status to dispatch.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Continuous background location is required to provide accurate customer ETAs and satisfy NHVR safety compliance while on duty.",
         "NSCameraUsageDescription": "Camera access is needed to capture delivery proof photos, customer dockets, and vehicle defect reports.",
@@ -39,7 +43,11 @@
         "FOREGROUND_SERVICE_LOCATION",
         "CAMERA",
         "POST_NOTIFICATIONS",
-        "WAKE_LOCK"
+        "WAKE_LOCK",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -62,6 +70,12 @@
           "color": "#2563eb"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "73ff084f-3e4c-4541-b088-21c3085369dd"
+      }
+    },
+    "owner": "rishi076"
   }
 }
