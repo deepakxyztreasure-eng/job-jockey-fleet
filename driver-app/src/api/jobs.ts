@@ -80,7 +80,7 @@ export async function startJob(jobId: string): Promise<void> {
 
 export interface CompleteJobPayload {
   jobId: string;
-  notes?: string;
+  notes?: string | null;
   proofImageUrl?: string | null;
   signatureUrl?: string | null;
   signerName?: string | null;

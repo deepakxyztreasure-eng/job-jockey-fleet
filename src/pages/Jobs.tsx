@@ -2364,12 +2364,20 @@ export default function Jobs() {
                   {verifyFor.completion_notes}
                 </div>
               )}
-              {verifyFor.proof_image_url && (
-                <Button size="sm" variant="outline" onClick={() => viewProof(verifyFor.proof_image_url)}>
-                  <ImageIcon className="h-4 w-4 mr-2" />
-                  View proof image
-                </Button>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {verifyFor.proof_image_url && (
+                  <Button size="sm" variant="outline" onClick={() => viewProof(verifyFor.proof_image_url)}>
+                    <ImageIcon className="h-4 w-4 mr-2" />
+                    View proof photo
+                  </Button>
+                )}
+                {verifyFor.customer_signature_url && (
+                  <Button size="sm" variant="outline" onClick={() => viewProof(verifyFor.customer_signature_url)}>
+                    <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                    View customer signature {verifyFor.customer_signature_name ? `(${verifyFor.customer_signature_name})` : ""}
+                  </Button>
+                )}
+              </div>
               <div className="border-t pt-3">
                 <Label>Rejection reason (optional)</Label>
                 <Textarea

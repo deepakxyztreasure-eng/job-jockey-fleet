@@ -26,3 +26,4 @@ dist-ssr
 *.sw?
 zodha-backup/
 *.zip
+*.apk

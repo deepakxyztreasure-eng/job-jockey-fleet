@@ -1381,10 +1381,10 @@ export default function LiveDispatch() {
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <FileCheck className="h-5 w-5 text-emerald-400" />
-              Verify & Complete Delivery
+              Verify & Complete Delivery (POD)
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-400">
-              Review proof of delivery, customer signature & weighbridge tonnage docket.
+              Review delivery photo and verified on-site customer signature.
             </DialogDescription>
           </DialogHeader>
 
@@ -1406,7 +1406,11 @@ export default function LiveDispatch() {
                 <p className="font-semibold text-slate-300 mb-1">1. Delivery Photo (POD)</p>
                 {verifyJob.proof_image_url ? (
                   <img
-                    src={verifyJob.proof_image_url}
+                    src={
+                      verifyJob.proof_image_url.startsWith("http") || verifyJob.proof_image_url.startsWith("data:")
+                        ? verifyJob.proof_image_url
+                        : supabase.storage.from("job-proofs").getPublicUrl(verifyJob.proof_image_url).data.publicUrl
+                    }
                     alt="Delivery proof"
                     className="w-full h-44 object-cover rounded-lg border border-slate-800"
                   />
@@ -1417,57 +1421,32 @@ export default function LiveDispatch() {
                 )}
               </div>
 
-              {/* Customer Signature / PIN */}
+              {/* Customer Signature */}
               <div>
-                <p className="font-semibold text-slate-300 mb-1">2. Customer Sign-off / PIN</p>
+                <p className="font-semibold text-slate-300 mb-1">2. Customer Signature & Sign-Off</p>
                 {verifyJob.customer_signature_url ? (
-                  <div className="bg-white p-2 rounded-lg border border-slate-800">
+                  <div className="bg-white p-3 rounded-lg border border-slate-700 shadow-sm">
                     <img
-                      src={verifyJob.customer_signature_url}
-                      alt="Signature"
-                      className="h-20 w-full object-contain"
+                      src={
+                        verifyJob.customer_signature_url.startsWith("http") || verifyJob.customer_signature_url.startsWith("data:")
+                          ? verifyJob.customer_signature_url
+                          : supabase.storage.from("job-proofs").getPublicUrl(verifyJob.customer_signature_url).data.publicUrl
+                      }
+                      alt="Customer Signature"
+                      className="h-24 w-full object-contain"
                     />
                     {verifyJob.customer_signature_name && (
-                      <p className="text-center text-[10px] text-slate-700 mt-1 font-semibold">
-                        Signer: {verifyJob.customer_signature_name}
-                      </p>
+                      <div className="mt-2 pt-2 border-t border-slate-200 text-center">
+                        <span className="text-[11px] text-slate-800 font-bold">
+                          Signed by: {verifyJob.customer_signature_name}
+                        </span>
+                      </div>
                     )}
                   </div>
-                ) : verifyJob.customer_pin ? (
-                  <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-center font-mono font-bold text-emerald-400">
-                    VERIFIED PIN: {verifyJob.customer_pin}
-                  </div>
                 ) : (
-                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center text-slate-500 text-[11px]">
-                    Signature or PIN pending from driver
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-center text-amber-500/80 text-[11px]">
+                    Customer signature pending from driver
                   </div>
-                )}
-              </div>
-
-              {/* Weighbridge Docket & Tonnage */}
-              <div>
-                <p className="font-semibold text-slate-300 mb-1">3. Weighbridge Docket & Weight</p>
-                <div className="grid grid-cols-3 gap-2 mb-2 text-center">
-                  <div className="bg-slate-900 p-2 rounded border border-slate-800">
-                    <span className="text-[10px] text-slate-500 block">Gross Weight</span>
-                    <span className="font-bold text-slate-200">{verifyJob.gross_weight ?? "—"} t</span>
-                  </div>
-                  <div className="bg-slate-900 p-2 rounded border border-slate-800">
-                    <span className="text-[10px] text-slate-500 block">Tare Weight</span>
-                    <span className="font-bold text-slate-200">{verifyJob.tare_weight ?? "—"} t</span>
-                  </div>
-                  <div className="bg-slate-900 p-2 rounded border border-slate-800">
-                    <span className="text-[10px] text-slate-500 block">Net Weight</span>
-                    <span className="font-bold text-emerald-400">{verifyJob.net_weight ?? "—"} t</span>
-                  </div>
-                </div>
-
-                {verifyJob.weighbridge_docket_url && (
-                  <img
-                    src={verifyJob.weighbridge_docket_url}
-                    alt="Docket scan"
-                    className="w-full h-36 object-cover rounded-lg border border-slate-800"
-                  />
                 )}
               </div>
             </div>
