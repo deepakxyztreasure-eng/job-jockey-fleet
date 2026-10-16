@@ -61,34 +61,13 @@ export async function triggerLocalNotification(
 
 export async function playAlertSound(type: 'new_job' | 'urgent' | 'fatigue'): Promise<void> {
   try {
-    // 1. Vibrate phone aggressively for heavy vehicle cabin noise
+    // Vibrate phone aggressively for heavy vehicle cabin noise
     if (type === 'new_job') {
       Vibration.vibrate([0, 500, 200, 500]);
     } else if (type === 'urgent') {
       Vibration.vibrate([0, 800, 300, 800, 300, 800]);
     } else {
       Vibration.vibrate([0, 1000]);
-    }
-
-    // 2. Play audio using modern expo-audio if available
-    try {
-      const { createAudioPlayer, setAudioModeAsync } = require('expo-audio');
-      if (setAudioModeAsync) {
-        await setAudioModeAsync({
-          playsInSilentMode: true,
-          interruptionMode: 'duckOthers',
-        }).catch(() => {});
-      }
-
-      if (createAudioPlayer) {
-        const player = createAudioPlayer({
-          uri: 'https://cdn.freesound.org/previews/536/536108_11566874-lq.mp3',
-        });
-        player.play();
-      }
-    } catch (audioErr) {
-      // Graceful fallback to vibration in environments without native audio module
-      console.log('[NotificationService] Audio playback notice (vibration active):', audioErr);
     }
   } catch (err) {
     console.warn('[NotificationService] Play alert warning:', err);
