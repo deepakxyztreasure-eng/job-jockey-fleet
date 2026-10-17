@@ -116,7 +116,18 @@ export async function submitJobCompletion(payload: CompleteJobPayload): Promise<
     .eq('id', payload.jobId);
 
   if (error) {
-    console.warn('Full completion update failed (possibly pending migration), falling back to base fields:', error.message);
+    console.warn('Full completion update failed (customer_signature_url column pending), encoding signature into completion_notes fallback:', error.message);
+    
+    // Embed signature metadata into completion_notes so it is NEVER lost
+    let preservedNotes = payload.notes || '';
+    const sigMetadata: string[] = [];
+    if (payload.signatureUrl) sigMetadata.push(`[Customer Signature: ${payload.signatureUrl}]`);
+    if (payload.signerName) sigMetadata.push(`[Signed By: ${payload.signerName}]`);
+    if (sigMetadata.length > 0) {
+      preservedNotes = preservedNotes ? `${preservedNotes}\n\n${sigMetadata.join(' ')}` : sigMetadata.join(' ');
+    }
+    baseUpdate.completion_notes = preservedNotes;
+
     const { error: fallbackErr } = await supabase
       .from('jobs')
       .update(baseUpdate)

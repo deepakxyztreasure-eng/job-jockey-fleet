@@ -9,6 +9,7 @@ import { LoginScreen } from '../screens/auth/LoginScreen';
 import { MorningChecklistScreen } from '../screens/checklist/MorningChecklistScreen';
 import { JobListScreen } from '../screens/jobs/JobListScreen';
 import { DeliveryConfirmScreen } from '../screens/jobs/DeliveryConfirmScreen';
+import { JobDetailModal } from '../screens/jobs/JobDetailModal';
 import { FatigueScreen } from '../screens/compliance/FatigueScreen';
 import { DefectReportScreen } from '../screens/compliance/DefectReportScreen';
 import { DispatchChatScreen } from '../screens/chat/DispatchChatScreen';
@@ -32,6 +33,9 @@ export const RootNavigator: React.FC = () => {
 
   // Active POD modal for delivery confirmation
   const [podJob, setPodJob] = useState<Job | null>(null);
+
+  // Active Job Details modal
+  const [detailJob, setDetailJob] = useState<Job | null>(null);
 
   // Defect report modal
   const [showDefectModal, setShowDefectModal] = useState(false);
@@ -191,7 +195,7 @@ export const RootNavigator: React.FC = () => {
             driverName={driver.full_name}
             vehicleName={driver.vehicle || undefined}
             onNavigateToPOD={(job) => setPodJob(job)}
-            onNavigateToDetail={() => {}}
+            onNavigateToDetail={(job) => setDetailJob(job)}
           />
         )}
         {currentTab === 'breaks' && <FatigueScreen driverId={driver.id} />}
@@ -206,6 +210,19 @@ export const RootNavigator: React.FC = () => {
           <ProfileScreen driver={driver} onLogout={() => setSession(null)} />
         )}
       </View>
+
+      {/* Full Job Details Modal */}
+      {detailJob && (
+        <JobDetailModal
+          job={detailJob}
+          visible={!!detailJob}
+          onClose={() => setDetailJob(null)}
+          onCompleteJob={(j) => {
+            setDetailJob(null);
+            setPodJob(j);
+          }}
+        />
+      )}
 
       {/* Delivery Confirmation POD Modal */}
       {podJob && (

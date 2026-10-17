@@ -1084,6 +1084,10 @@ export default function Jobs() {
 
   const viewProof = async (path: string) => {
     if (!path) return;
+    if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
+      window.open(path, "_blank");
+      return;
+    }
     const cleanPath = path.replace(/^job-proofs\//, "").replace(/^.*\/storage\/v1\/object\/public\/job-proofs\//, "");
     const { data, error } = await supabase.storage.from("job-proofs").createSignedUrl(cleanPath, 60 * 5);
     if (error) return toast.error(`Could not open image: ${error.message}`);
@@ -2371,12 +2375,20 @@ export default function Jobs() {
                     View proof photo
                   </Button>
                 )}
-                {verifyFor.customer_signature_url && (
-                  <Button size="sm" variant="outline" onClick={() => viewProof(verifyFor.customer_signature_url)}>
-                    <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
-                    View customer signature {verifyFor.customer_signature_name ? `(${verifyFor.customer_signature_name})` : ""}
-                  </Button>
-                )}
+                {(() => {
+                  const directSig = verifyFor.customer_signature_url;
+                  const embeddedMatch = verifyFor.completion_notes?.match(/\[Customer Signature:\s*([^\]]+)\]/);
+                  const sigUrl = directSig || (embeddedMatch ? embeddedMatch[1].trim() : null);
+                  const embeddedNameMatch = verifyFor.completion_notes?.match(/\[Signed By:\s*([^\]]+)\]/);
+                  const signerName = verifyFor.customer_signature_name || (embeddedNameMatch ? embeddedNameMatch[1].trim() : "");
+                  if (!sigUrl) return null;
+                  return (
+                    <Button size="sm" variant="outline" onClick={() => viewProof(sigUrl)}>
+                      <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                      View customer signature {signerName ? `(${signerName})` : ""}
+                    </Button>
+                  );
+                })()}
               </div>
               <div className="border-t pt-3">
                 <Label>Rejection reason (optional)</Label>

@@ -1424,30 +1424,43 @@ export default function LiveDispatch() {
               {/* Customer Signature */}
               <div>
                 <p className="font-semibold text-slate-300 mb-1">2. Customer Signature & Sign-Off</p>
-                {verifyJob.customer_signature_url ? (
-                  <div className="bg-white p-3 rounded-lg border border-slate-700 shadow-sm">
-                    <img
-                      src={
-                        verifyJob.customer_signature_url.startsWith("http") || verifyJob.customer_signature_url.startsWith("data:")
-                          ? verifyJob.customer_signature_url
-                          : supabase.storage.from("job-proofs").getPublicUrl(verifyJob.customer_signature_url).data.publicUrl
-                      }
-                      alt="Customer Signature"
-                      className="h-24 w-full object-contain"
-                    />
-                    {verifyJob.customer_signature_name && (
-                      <div className="mt-2 pt-2 border-t border-slate-200 text-center">
-                        <span className="text-[11px] text-slate-800 font-bold">
-                          Signed by: {verifyJob.customer_signature_name}
-                        </span>
+                {(() => {
+                  const directSig = verifyJob.customer_signature_url;
+                  const embeddedMatch = verifyJob.completion_notes?.match(/\[Customer Signature:\s*([^\]]+)\]/);
+                  const sigUrl = directSig || (embeddedMatch ? embeddedMatch[1].trim() : null);
+                  const embeddedNameMatch = verifyJob.completion_notes?.match(/\[Signed By:\s*([^\]]+)\]/);
+                  const signerName = verifyJob.customer_signature_name || (embeddedNameMatch ? embeddedNameMatch[1].trim() : "");
+
+                  if (!sigUrl) {
+                    return (
+                      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-center text-amber-500/80 text-[11px]">
+                        Customer signature pending from driver
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-center text-amber-500/80 text-[11px]">
-                    Customer signature pending from driver
-                  </div>
-                )}
+                    );
+                  }
+
+                  const imgSrc =
+                    sigUrl.startsWith("http") || sigUrl.startsWith("data:")
+                      ? sigUrl
+                      : supabase.storage.from("job-proofs").getPublicUrl(sigUrl).data.publicUrl;
+
+                  return (
+                    <div className="bg-white p-3 rounded-lg border border-slate-700 shadow-sm">
+                      <img
+                        src={imgSrc}
+                        alt="Customer Signature"
+                        className="h-24 w-full object-contain"
+                      />
+                      {signerName && (
+                        <div className="mt-2 pt-2 border-t border-slate-200 text-center">
+                          <span className="text-[11px] text-slate-800 font-bold">
+                            Signed by: {signerName}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

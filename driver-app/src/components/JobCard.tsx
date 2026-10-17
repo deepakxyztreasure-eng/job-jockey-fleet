@@ -65,14 +65,18 @@ export const JobCard: React.FC<JobCardProps> = ({
     <View style={[styles.card, job.priority === 'priority' && styles.priorityCardBorder]}>
       {/* Top Header */}
       <View style={styles.header}>
-        <View style={styles.titleContainer}>
+        <TouchableOpacity
+          style={styles.titleContainer}
+          activeOpacity={onPressDetails ? 0.7 : 1}
+          onPress={() => onPressDetails && onPressDetails(job)}
+        >
           <Text style={styles.title} numberOfLines={1}>
             {job.title}
           </Text>
           <Text style={styles.subtext}>
-            #{job.job_number || 'JOB'} • Inv: {job.invoice_number || 'N/A'}
+            #{job.job_number || 'JOB'} • Inv: {job.invoice_number || 'N/A'} • Tap for details
           </Text>
-        </View>
+        </TouchableOpacity>
         <StatusBadge status={job.status} priority={job.priority} />
       </View>
 
@@ -144,7 +148,9 @@ export const JobCard: React.FC<JobCardProps> = ({
         )}
         {job.cod && (
           <View style={[styles.metaItem, styles.codBadge]}>
-            <Text style={styles.codText}>💰 COD</Text>
+            <Text style={styles.codText}>
+              💰 COD {job.price != null ? `$${Number(job.price).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+            </Text>
           </View>
         )}
       </View>
