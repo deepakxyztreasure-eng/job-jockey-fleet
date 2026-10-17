@@ -2061,10 +2061,20 @@ export default function Jobs() {
                             </span>
                           )}
                           {j.proof_image_url && (
-                            <button onClick={() => viewProof(j.proof_image_url)} title="View proof">
-                              <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            <button onClick={() => viewProof(j.proof_image_url)} title="View proof photo" className="p-0.5 hover:text-primary">
+                              <ImageIcon className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
                             </button>
                           )}
+                          {(() => {
+                            const embeddedMatch = j.completion_notes?.match(/\[Customer Signature:\s*([^\]]+)\]/);
+                            const sigUrl = j.customer_signature_url || (embeddedMatch ? embeddedMatch[1].trim() : null);
+                            if (!sigUrl) return null;
+                            return (
+                              <button onClick={() => viewProof(sigUrl)} title="View customer signature" className="p-0.5 text-emerald-600 hover:text-emerald-700">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                              </button>
+                            );
+                          })()}
                           {flagUnpaid && (
                             <span className="text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 bg-warning/20 text-warning font-medium">
                               {j.payment_status}
@@ -2560,6 +2570,28 @@ export default function Jobs() {
                   {row("Product description", j.description)}
                   {row("Created By", j.creator?.full_name ?? "—")}
                   {row("Created At", j.created_at ? format(new Date(j.created_at), "MMM d, yyyy h:mm a") : "—")}
+                  {j.proof_image_url &&
+                    row(
+                      "Delivery Proof Photo",
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => viewProof(j.proof_image_url)}>
+                        <ImageIcon className="h-3.5 w-3.5 mr-1.5" />
+                        View delivery photo
+                      </Button>
+                    )}
+                  {(() => {
+                    const embeddedMatch = j.completion_notes?.match(/\[Customer Signature:\s*([^\]]+)\]/);
+                    const sigUrl = j.customer_signature_url || (embeddedMatch ? embeddedMatch[1].trim() : null);
+                    const embeddedNameMatch = j.completion_notes?.match(/\[Signed By:\s*([^\]]+)\]/);
+                    const signerName = j.customer_signature_name || (embeddedNameMatch ? embeddedNameMatch[1].trim() : "");
+                    if (!sigUrl) return null;
+                    return row(
+                      "Customer Signature",
+                      <Button size="sm" variant="outline" className="h-7 text-xs text-emerald-600 border-emerald-300 hover:bg-emerald-50" onClick={() => viewProof(sigUrl)}>
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+                        View signature {signerName ? `(${signerName})` : ""}
+                      </Button>
+                    );
+                  })()}
                 </div>
               );
             })()}

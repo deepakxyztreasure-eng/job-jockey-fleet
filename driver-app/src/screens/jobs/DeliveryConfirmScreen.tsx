@@ -114,9 +114,11 @@ export const DeliveryConfirmScreen: React.FC<DeliveryConfirmScreenProps> = ({
   // Upload local delivery image URI to Supabase Storage
   const uploadImage = async (localUri: string, folder: string): Promise<string | null> => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userPrefix = user?.id ? `${user.id}/` : '';
       const response = await fetch(localUri);
       const blob = await response.blob();
-      const filename = `${folder}/${job.id}_${Date.now()}.jpg`;
+      const filename = `${userPrefix}${folder}/${job.id}_${Date.now()}.jpg`;
 
       const { data, error } = await supabase.storage
         .from('job-proofs')
@@ -158,6 +160,8 @@ export const DeliveryConfirmScreen: React.FC<DeliveryConfirmScreenProps> = ({
   // Upload SVG signature vector to Supabase Storage
   const uploadSignatureSvg = async (svgString: string): Promise<string | null> => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userPrefix = user?.id ? `${user.id}/` : '';
       const fileUri = `${FileSystem.cacheDirectory}sig_${job.id}_${Date.now()}.svg`;
       await FileSystem.writeAsStringAsync(fileUri, svgString, {
         encoding: FileSystem.EncodingType.UTF8,
@@ -165,7 +169,7 @@ export const DeliveryConfirmScreen: React.FC<DeliveryConfirmScreenProps> = ({
 
       const response = await fetch(fileUri);
       const blob = await response.blob();
-      const filename = `signatures/${job.id}_${Date.now()}.svg`;
+      const filename = `${userPrefix}signatures/${job.id}_${Date.now()}.svg`;
 
       const { data, error } = await supabase.storage
         .from('job-proofs')
