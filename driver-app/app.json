@@ -2,7 +2,7 @@
   "expo": {
     "name": "Jodha Driver",
     "slug": "jodha-driver",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -26,6 +26,7 @@
     },
     "android": {
       "package": "app.jodhagroup.driver",
+      "versionCode": 3,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCAPYcCyZfs_3qpFv09bcU3VRRdoEwAIek"

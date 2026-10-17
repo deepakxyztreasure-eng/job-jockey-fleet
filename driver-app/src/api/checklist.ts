@@ -77,7 +77,15 @@ export const EVENING_CHECKLIST_ITEMS = [
   },
 ];
 
-export const getTodayDateString = () => new Date().toISOString().slice(0, 10);
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+export const getTodayDateString = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 export async function getTodayChecklistStatus(driverId: string): Promise<{
   morningSubmitted: boolean;
@@ -87,6 +95,23 @@ export async function getTodayChecklistStatus(driverId: string): Promise<{
   eveningSubmitted: boolean;
 }> {
   const today = getTodayDateString();
+  const localCacheKey = `@jodha_morning_checklist_${driverId}_${today}`;
+
+  // Check local cache first: if driver already cleared the checklist today on this device, return true immediately!
+  try {
+    const cached = await AsyncStorage.getItem(localCacheKey);
+    if (cached === 'true') {
+      return {
+        morningSubmitted: true,
+        morningRequiresSignoff: false,
+        morningSignoffStatus: 'approved',
+        morningChecklist: null,
+        eveningSubmitted: false,
+      };
+    }
+  } catch (cacheErr) {
+    console.warn('Checklist cache read error:', cacheErr);
+  }
 
   try {
     // Check morning checklist in driver_checklists
@@ -111,6 +136,11 @@ export async function getTodayChecklistStatus(driverId: string): Promise<{
         .limit(1)
         .maybeSingle();
 
+      const cleared = !morning.requires_signoff || morning.signoff_status === 'approved';
+      if (cleared) {
+        AsyncStorage.setItem(localCacheKey, 'true').catch(() => {});
+      }
+
       return {
         morningSubmitted: true,
         morningRequiresSignoff: morning?.requires_signoff || false,
@@ -134,6 +164,7 @@ export async function getTodayChecklistStatus(driverId: string): Promise<{
       .maybeSingle();
 
     if (legacyLog) {
+      AsyncStorage.setItem(localCacheKey, 'true').catch(() => {});
       return {
         morningSubmitted: true,
         morningRequiresSignoff: false,
@@ -162,6 +193,7 @@ export async function submitChecklist(
   driverName?: string
 ): Promise<{ success: boolean; requiresSignoff: boolean; message: string }> {
   const today = getTodayDateString();
+  const localCacheKey = `@jodha_morning_checklist_${driverId}_${today}`;
   const hasNo = responses.some((r) => r.answer === 'no');
 
   const payload: any = {
@@ -173,6 +205,11 @@ export async function submitChecklist(
     signoff_status: hasNo ? 'pending' : 'none',
     submitted_at: new Date().toISOString(),
   };
+
+  // If morning checklist has no defects, mark local device as cleared immediately
+  if (type === 'morning' && !hasNo) {
+    AsyncStorage.setItem(localCacheKey, 'true').catch(() => {});
+  }
 
   // 1. Try writing to new driver_checklists table
   try {

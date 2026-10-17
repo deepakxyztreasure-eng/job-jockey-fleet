@@ -74,6 +74,10 @@ export async function playAlertSound(type: 'new_job' | 'urgent' | 'fatigue'): Pr
   }
 }
 
+import Constants from 'expo-constants';
+
+const EAS_PROJECT_ID = '73ff084f-3e4c-4541-b088-21c3085369dd';
+
 export async function registerForPushNotifications(
   userId: string,
   driverId?: string
@@ -89,24 +93,40 @@ export async function registerForPushNotifications(
     }
 
     if (finalStatus !== 'granted') {
-      console.warn('Push notification permission denied');
+      console.warn('[NotificationService] Push notification permission denied');
       return null;
     }
 
+    // EAS projectId is mandatory for ExpoPushToken in standalone / Play Store builds
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ||
+      Constants.easConfig?.projectId ||
+      EAS_PROJECT_ID;
+
     let tokenData: Notifications.ExpoPushToken | null = null;
     try {
-      tokenData = await Notifications.getExpoPushTokenAsync();
+      tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     } catch (pushErr: any) {
-      console.warn('[NotificationService] getExpoPushToken notice:', pushErr?.message || pushErr);
+      console.warn('[NotificationService] getExpoPushToken error with projectId:', pushErr?.message || pushErr);
+      // Fallback try without arguments just in case
+      try {
+        tokenData = await Notifications.getExpoPushTokenAsync();
+      } catch (fallbackErr: any) {
+        console.warn('[NotificationService] Fallback getExpoPushToken notice:', fallbackErr?.message || fallbackErr);
+      }
     }
 
-    if (!tokenData?.data) return null;
+    if (!tokenData?.data) {
+      console.warn('[NotificationService] No push token returned from Expo');
+      return null;
+    }
 
     const token = tokenData.data;
+    console.log('[NotificationService] Obtained Expo Push Token:', token);
 
     // Save token to push_subscriptions
     try {
-      await supabase.from('push_subscriptions').upsert(
+      const { error: upsertErr } = await supabase.from('push_subscriptions').upsert(
         {
           user_id: userId,
           driver_id: driverId || null,
@@ -117,6 +137,11 @@ export async function registerForPushNotifications(
         },
         { onConflict: 'endpoint' }
       );
+      if (upsertErr) {
+        console.warn('[NotificationService] push_subscriptions upsert error:', upsertErr.message);
+      } else {
+        console.log('[NotificationService] Successfully registered push token in push_subscriptions');
+      }
     } catch (dbErr) {
       console.warn('[NotificationService] push_subscriptions upsert note:', dbErr);
     }
@@ -127,3 +152,4 @@ export async function registerForPushNotifications(
     return null;
   }
 }
+
