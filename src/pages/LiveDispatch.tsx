@@ -804,16 +804,14 @@ export default function LiveDispatch() {
       });
     }
 
-    // Also attempt DB insert in background (fails gracefully if table not yet created)
-    try {
-      await supabase.from("job_messages").insert({
-        driver_id: chatDriver.id,
-        sender_id: user?.id || "dispatch",
-        sender_name: "Dispatch Office",
-        sender_role: "dispatcher",
-        message_text: text,
-      });
-    } catch {}
+    // Fire DB insert in background — don't block UI on it
+    supabase.from("job_messages").insert({
+      driver_id: chatDriver.id,
+      sender_id: user?.id || "dispatch",
+      sender_name: "Dispatch Office",
+      sender_role: "dispatcher",
+      message_text: text,
+    }).then(() => {}).catch(() => {});
 
     setChatSending(false);
     toast.success(`Instruction sent to ${chatDriver.full_name}`);

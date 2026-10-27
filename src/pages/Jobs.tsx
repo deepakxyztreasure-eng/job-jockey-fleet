@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -206,6 +207,9 @@ export default function Jobs() {
   const [reviewEditFor, setReviewEditFor] = useState<any | null>(null);
   // Job detail modal (driver / member view)
   const [detailFor, setDetailFor] = useState<any | null>(null);
+
+  // Inline image preview (signature / proof photo) — avoids popup blockers
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   // Admin assign-driver modal
   const [assignFor, setAssignFor] = useState<any | null>(null);
@@ -1084,14 +1088,21 @@ export default function Jobs() {
 
   const viewProof = async (path: string) => {
     if (!path) return;
-    if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
-      window.open(path, "_blank");
+    // Base64 / data URLs — show inline directly
+    if (path.startsWith("data:")) {
+      setImagePreviewUrl(path);
       return;
     }
+    // Full HTTPS URLs — show inline directly
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      setImagePreviewUrl(path);
+      return;
+    }
+    // Storage path — generate a signed URL then show inline
     const cleanPath = path.replace(/^job-proofs\//, "").replace(/^.*\/storage\/v1\/object\/public\/job-proofs\//, "");
     const { data, error } = await supabase.storage.from("job-proofs").createSignedUrl(cleanPath, 60 * 5);
     if (error) return toast.error(`Could not open image: ${error.message}`);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    if (data?.signedUrl) setImagePreviewUrl(data.signedUrl);
   };
 
   const allChecked = filtered.length > 0 && filtered.every((j) => selected.has(j.id));
@@ -2516,12 +2527,12 @@ export default function Jobs() {
         </DialogContent>
       </Dialog>
 
-      {/* Job detail dialog (driver view) */}
-      <Dialog open={!!detailFor} onOpenChange={(v) => !v && setDetailFor(null)}>
-        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Job details</DialogTitle>
-          </DialogHeader>
+      {/* Job detail — Sheet (bottom drawer) works reliably on mobile */}
+      <Sheet open={!!detailFor} onOpenChange={(v) => !v && setDetailFor(null)}>
+        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader className="mb-3">
+            <SheetTitle>Job details</SheetTitle>
+          </SheetHeader>
           {detailFor &&
             (() => {
               const j = detailFor;
@@ -2592,15 +2603,39 @@ export default function Jobs() {
                       </Button>
                     );
                   })()}
+                  <div className="pt-4">
+                    <Button variant="outline" className="w-full" onClick={() => setDetailFor(null)}>
+                      Close
+                    </Button>
+                  </div>
                 </div>
               );
             })()}
+        </SheetContent>
+      </Sheet>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailFor(null)}>
-              Close
+      {/* Inline image preview — avoids popup blockers on mobile & desktop */}
+      <Dialog open={!!imagePreviewUrl} onOpenChange={(v) => !v && setImagePreviewUrl(null)}>
+        <DialogContent className="max-w-2xl p-2">
+          <DialogHeader className="px-2 pt-2">
+            <DialogTitle className="text-sm">Photo / Signature</DialogTitle>
+          </DialogHeader>
+          {imagePreviewUrl && (
+            <div className="flex items-center justify-center bg-muted rounded-md overflow-hidden max-h-[70vh]">
+              <img
+                src={imagePreviewUrl}
+                alt="Proof"
+                className="max-w-full max-h-[70vh] object-contain"
+                onError={() => toast.error("Could not load image")}
+              />
+            </div>
+          )}
+          <div className="flex justify-end gap-2 px-2 pb-2">
+            <Button variant="outline" size="sm" onClick={() => window.open(imagePreviewUrl!, "_blank")}>
+              Open in new tab
             </Button>
-          </DialogFooter>
+            <Button size="sm" onClick={() => setImagePreviewUrl(null)}>Close</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
