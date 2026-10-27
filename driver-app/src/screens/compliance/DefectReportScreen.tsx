@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Colors } from '../../theme/colors';
 import { submitDefectReport } from '../../api/compliance';
 import { supabase } from '../../api/supabase';
@@ -73,13 +74,22 @@ export const DefectReportScreen: React.FC<DefectReportScreenProps> = ({
     try {
       let photoUrl: string | null = null;
       if (photoUri) {
-        const resp = await fetch(photoUri);
-        const blob = await resp.blob();
-        const filename = `defects/${driverId}_${Date.now()}.jpg`;
-        const { data } = await supabase.storage.from('job-proofs').upload(filename, blob, {
-          contentType: 'image/jpeg',
+        const base64Data = await FileSystem.readAsStringAsync(photoUri, {
+          encoding: FileSystem.EncodingType.Base64,
         });
-        photoUrl = data?.path || null;
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const filename = `defects/${driverId}_${Date.now()}.jpg`;
+        const { data, error } = await supabase.storage.from('job-proofs').upload(filename, bytes.buffer, {
+          contentType: 'image/jpeg',
+          upsert: true,
+        });
+        if (!error && data) {
+          photoUrl = data.path;
+        }
       }
 
       await submitDefectReport({

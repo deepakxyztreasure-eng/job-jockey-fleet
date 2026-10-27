@@ -8,8 +8,10 @@ import {
   TouchableOpacity,
   Linking,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { format } from 'date-fns';
 import { Colors } from '../../theme/colors';
 import { Job } from '../../types';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -52,15 +54,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return '—';
     try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('en-AU', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      });
+      return format(new Date(dateStr), 'MMM d, yyyy h:mm a');
     } catch {
       return dateStr;
     }
@@ -249,6 +243,27 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
             </View>
           )}
 
+          {/* Delivery Completion Details (if completed or requested) */}
+          {(job.completion_notes || job.proof_image_url || job.customer_signature_url) && (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionHeading}>Delivery Confirmation & POD</Text>
+
+              {job.completion_notes && (
+                <View style={styles.infoRowStacked}>
+                  <Text style={styles.infoLabel}>Driver Notes</Text>
+                  <Text style={styles.infoValueBlock}>{job.completion_notes}</Text>
+                </View>
+              )}
+
+              {job.customer_signature_name && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Signed By</Text>
+                  <Text style={[styles.infoValue, styles.fontBold]}>{job.customer_signature_name}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Created Metadata */}
           <View style={styles.metaFooter}>
             <Text style={styles.metaFooterText}>
@@ -259,7 +274,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
 
         {/* Action Footer */}
         <View style={styles.footer}>
-          {job.status === 'assigned' && onStartJob && (
+          {(job.status === 'assigned' || job.status === 'accepted') && onStartJob && (
             <TouchableOpacity
               style={[styles.actionBtn, styles.actionBtnStart]}
               onPress={() => {

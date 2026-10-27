@@ -4,7 +4,7 @@ import { Job, JobStop } from '../types';
 export async function fetchDriverJobs(driverId: string): Promise<Job[]> {
   const { data, error } = await supabase
     .from('jobs')
-    .select('*')
+    .select('*, store_locations(id, name, address)')
     .eq('assigned_driver_id', driverId)
     .order('created_at', { ascending: false });
 
@@ -13,8 +13,16 @@ export async function fetchDriverJobs(driverId: string): Promise<Job[]> {
     throw error;
   }
 
+  // Format pickup_address from linked store_locations if not explicitly set
+  const formattedJobs = (data || []).map((j: any) => ({
+    ...j,
+    pickup_address: j.store_locations
+      ? `${j.store_locations.name}${j.store_locations.address ? ' — ' + j.store_locations.address : ''}`
+      : j.pickup_address || null,
+  }));
+
   // Fetch stops for these jobs if multi-stop table exists
-  const jobIds = (data || []).map((j: any) => j.id);
+  const jobIds = formattedJobs.map((j: any) => j.id);
   if (jobIds.length > 0) {
     try {
       const { data: stopsData, error: stopsError } = await supabase
@@ -31,7 +39,7 @@ export async function fetchDriverJobs(driverId: string): Promise<Job[]> {
           stopsByJob.set(stop.job_id, list);
         });
 
-        return (data || []).map((j: any) => ({
+        return formattedJobs.map((j: any) => ({
           ...j,
           stops: stopsByJob.get(j.id) || [],
         })) as Job[];
@@ -41,7 +49,7 @@ export async function fetchDriverJobs(driverId: string): Promise<Job[]> {
     }
   }
 
-  return (data || []) as Job[];
+  return formattedJobs as Job[];
 }
 
 export async function acceptJob(jobId: string): Promise<void> {

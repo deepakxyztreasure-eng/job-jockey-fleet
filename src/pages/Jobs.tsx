@@ -1093,13 +1093,20 @@ export default function Jobs() {
       setImagePreviewUrl(path);
       return;
     }
-    // Full HTTPS URLs — show inline directly
-    if (path.startsWith("http://") || path.startsWith("https://")) {
+    // If it's a Supabase storage URL for job-proofs, strip it to the relative path so we can sign it
+    const isSupabaseJobProofsUrl =
+      path.includes("/storage/v1/object/public/job-proofs/") ||
+      path.includes("/storage/v1/object/authenticated/job-proofs/");
+
+    // If it's another full external URL (not in job-proofs), show inline directly
+    if (!isSupabaseJobProofsUrl && (path.startsWith("http://") || path.startsWith("https://"))) {
       setImagePreviewUrl(path);
       return;
     }
     // Storage path — generate a signed URL then show inline
-    const cleanPath = path.replace(/^job-proofs\//, "").replace(/^.*\/storage\/v1\/object\/public\/job-proofs\//, "");
+    const cleanPath = path
+      .replace(/^job-proofs\//, "")
+      .replace(/^.*\/storage\/v1\/object\/(?:public|authenticated)\/job-proofs\//, "");
     const { data, error } = await supabase.storage.from("job-proofs").createSignedUrl(cleanPath, 60 * 5);
     if (error) return toast.error(`Could not open image: ${error.message}`);
     if (data?.signedUrl) setImagePreviewUrl(data.signedUrl);

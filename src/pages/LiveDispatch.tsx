@@ -305,7 +305,36 @@ export default function LiveDispatch() {
 
   // POD Verification / Complete Modal
   const [verifyJob, setVerifyJob] = useState<ActiveJob | null>(null);
+  const [resolvedProofUrl, setResolvedProofUrl] = useState<string | null>(null);
+  const [resolvedSigUrl, setResolvedSigUrl] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
+
+  useEffect(() => {
+    if (!verifyJob) {
+      setResolvedProofUrl(null);
+      setResolvedSigUrl(null);
+      return;
+    }
+
+    const resolveUrl = async (urlOrPath?: string | null): Promise<string | null> => {
+      if (!urlOrPath) return null;
+      if (urlOrPath.startsWith("data:")) return urlOrPath;
+      const isPublicStorage = urlOrPath.includes("/storage/v1/object/public/job-proofs/") || urlOrPath.includes("/storage/v1/object/authenticated/job-proofs/");
+      if (!isPublicStorage && (urlOrPath.startsWith("http://") || urlOrPath.startsWith("https://"))) {
+        return urlOrPath;
+      }
+      const cleanPath = urlOrPath.replace(/^job-proofs\//, "").replace(/^.*\/storage\/v1\/object\/(?:public|authenticated)\/job-proofs\//, "");
+      const { data } = await supabase.storage.from("job-proofs").createSignedUrl(cleanPath, 60 * 10);
+      return data?.signedUrl || null;
+    };
+
+    resolveUrl(verifyJob.proof_image_url).then(setResolvedProofUrl);
+
+    const directSig = verifyJob.customer_signature_url;
+    const embeddedMatch = verifyJob.completion_notes?.match(/\[Customer Signature:\s*([^\]]+)\]/);
+    const sigRaw = directSig || (embeddedMatch ? embeddedMatch[1].trim() : null);
+    resolveUrl(sigRaw).then(setResolvedSigUrl);
+  }, [verifyJob]);
 
   // Morning Sign-off Modal
   const [signoffModal, setSignoffModal] = useState<ChecklistSignoff | null>(null);
@@ -1402,16 +1431,16 @@ export default function LiveDispatch() {
               {/* Delivery Proof Photo */}
               <div>
                 <p className="font-semibold text-slate-300 mb-1">1. Delivery Photo (POD)</p>
-                {verifyJob.proof_image_url ? (
+                {resolvedProofUrl ? (
                   <img
-                    src={
-                      verifyJob.proof_image_url.startsWith("http") || verifyJob.proof_image_url.startsWith("data:")
-                        ? verifyJob.proof_image_url
-                        : supabase.storage.from("job-proofs").getPublicUrl(verifyJob.proof_image_url).data.publicUrl
-                    }
+                    src={resolvedProofUrl}
                     alt="Delivery proof"
                     className="w-full h-44 object-cover rounded-lg border border-slate-800"
                   />
+                ) : verifyJob.proof_image_url ? (
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 text-center text-slate-400">
+                    Loading delivery photo...
+                  </div>
                 ) : (
                   <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 text-center text-slate-500">
                     No photo uploaded by driver yet
@@ -1423,29 +1452,22 @@ export default function LiveDispatch() {
               <div>
                 <p className="font-semibold text-slate-300 mb-1">2. Customer Signature & Sign-Off</p>
                 {(() => {
-                  const directSig = verifyJob.customer_signature_url;
-                  const embeddedMatch = verifyJob.completion_notes?.match(/\[Customer Signature:\s*([^\]]+)\]/);
-                  const sigUrl = directSig || (embeddedMatch ? embeddedMatch[1].trim() : null);
                   const embeddedNameMatch = verifyJob.completion_notes?.match(/\[Signed By:\s*([^\]]+)\]/);
                   const signerName = verifyJob.customer_signature_name || (embeddedNameMatch ? embeddedNameMatch[1].trim() : "");
 
-                  if (!sigUrl) {
+                  if (!resolvedSigUrl) {
+                    const hasSig = verifyJob.customer_signature_url || verifyJob.completion_notes?.includes("[Customer Signature:");
                     return (
                       <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-center text-amber-500/80 text-[11px]">
-                        Customer signature pending from driver
+                        {hasSig ? "Loading customer signature..." : "Customer signature pending from driver"}
                       </div>
                     );
                   }
 
-                  const imgSrc =
-                    sigUrl.startsWith("http") || sigUrl.startsWith("data:")
-                      ? sigUrl
-                      : supabase.storage.from("job-proofs").getPublicUrl(sigUrl).data.publicUrl;
-
                   return (
                     <div className="bg-white p-3 rounded-lg border border-slate-700 shadow-sm">
                       <img
-                        src={imgSrc}
+                        src={resolvedSigUrl}
                         alt="Customer Signature"
                         className="h-24 w-full object-contain"
                       />

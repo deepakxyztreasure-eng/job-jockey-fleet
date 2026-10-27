@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
 import { supabase, linkDriverAccount } from '../api/supabase';
 import { DriverProfile, Job } from '../types';
 import { getTodayChecklistStatus } from '../api/checklist';
+import { startJob } from '../api/jobs';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { MorningChecklistScreen } from '../screens/checklist/MorningChecklistScreen';
 import { JobListScreen } from '../screens/jobs/JobListScreen';
@@ -217,6 +218,14 @@ export const RootNavigator: React.FC = () => {
           job={detailJob}
           visible={!!detailJob}
           onClose={() => setDetailJob(null)}
+          onStartJob={async (j) => {
+            try {
+              await startJob(j.id);
+              setDetailJob(null);
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to start job');
+            }
+          }}
           onCompleteJob={(j) => {
             setDetailJob(null);
             setPodJob(j);

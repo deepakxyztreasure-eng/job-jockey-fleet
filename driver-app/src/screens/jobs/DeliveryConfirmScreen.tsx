@@ -111,25 +111,39 @@ export const DeliveryConfirmScreen: React.FC<DeliveryConfirmScreenProps> = ({
     }
   };
 
+  // Helper to convert base64 to binary ArrayBuffer for Supabase Storage
+  const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  };
+
   // Upload local delivery image URI to Supabase Storage
   const uploadImage = async (localUri: string, folder: string): Promise<string | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userPrefix = user?.id ? `${user.id}/` : '';
-      const response = await fetch(localUri);
-      const blob = await response.blob();
       const filename = `${userPrefix}${folder}/${job.id}_${Date.now()}.jpg`;
+
+      // Read local camera URI using Expo FileSystem as base64 — avoids React Native fetch(file://) failure
+      const base64Data = await FileSystem.readAsStringAsync(localUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const arrayBuffer = base64ToArrayBuffer(base64Data);
 
       const { data, error } = await supabase.storage
         .from('job-proofs')
-        .upload(filename, blob, {
+        .upload(filename, arrayBuffer, {
           contentType: 'image/jpeg',
           upsert: true,
         });
 
       if (error) throw error;
-      const { data: pubData } = supabase.storage.from('job-proofs').getPublicUrl(data.path);
-      return pubData?.publicUrl || data?.path || null;
+      return data?.path || null;
     } catch (err) {
       console.warn('Storage upload error, falling back to local queue:', err);
       return null;
@@ -162,25 +176,20 @@ export const DeliveryConfirmScreen: React.FC<DeliveryConfirmScreenProps> = ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userPrefix = user?.id ? `${user.id}/` : '';
-      const fileUri = `${FileSystem.cacheDirectory}sig_${job.id}_${Date.now()}.svg`;
-      await FileSystem.writeAsStringAsync(fileUri, svgString, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
-
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
       const filename = `${userPrefix}signatures/${job.id}_${Date.now()}.svg`;
+
+      // Convert SVG string directly to ArrayBuffer without needing disk fetch()
+      const arrayBuffer = new TextEncoder().encode(svgString).buffer;
 
       const { data, error } = await supabase.storage
         .from('job-proofs')
-        .upload(filename, blob, {
+        .upload(filename, arrayBuffer, {
           contentType: 'image/svg+xml',
           upsert: true,
         });
 
       if (error) throw error;
-      const { data: pubData } = supabase.storage.from('job-proofs').getPublicUrl(data.path);
-      return pubData?.publicUrl || data?.path || null;
+      return data?.path || null;
     } catch (err) {
       console.warn('Signature upload error, will queue offline:', err);
       return null;
