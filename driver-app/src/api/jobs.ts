@@ -2,9 +2,10 @@ import { supabase } from './supabase';
 import { Job, JobStop } from '../types';
 
 export async function fetchDriverJobs(driverId: string): Promise<Job[]> {
+  // 1. Fetch driver jobs cleanly (no foreign key constraint required)
   const { data, error } = await supabase
     .from('jobs')
-    .select('*, store_locations(id, name, address)')
+    .select('*')
     .eq('assigned_driver_id', driverId)
     .order('created_at', { ascending: false });
 
@@ -13,13 +14,25 @@ export async function fetchDriverJobs(driverId: string): Promise<Job[]> {
     throw error;
   }
 
-  // Format pickup_address from linked store_locations if not explicitly set
-  const formattedJobs = (data || []).map((j: any) => ({
-    ...j,
-    pickup_address: j.store_locations
-      ? `${j.store_locations.name}${j.store_locations.address ? ' — ' + j.store_locations.address : ''}`
-      : j.pickup_address || null,
-  }));
+  // 2. Fetch store locations safely in memory (identical to web app Jobs.tsx)
+  let locMap = new Map();
+  try {
+    const { data: locs } = await supabase.from('store_locations').select('id, name, address');
+    if (locs) locMap = new Map(locs.map((l: any) => [l.id, l]));
+  } catch {
+    // Graceful fallback if store_locations is unavailable
+  }
+
+  // 3. Format pickup_address from linked store_locations if not explicitly set
+  const formattedJobs = (data || []).map((j: any) => {
+    const loc = j.pickup_location_id ? locMap.get(j.pickup_location_id) : null;
+    return {
+      ...j,
+      pickup_address: loc
+        ? `${loc.name}${loc.address ? ' — ' + loc.address : ''}`
+        : j.pickup_address || null,
+    };
+  });
 
   // Fetch stops for these jobs if multi-stop table exists
   const jobIds = formattedJobs.map((j: any) => j.id);
